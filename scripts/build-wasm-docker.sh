@@ -56,6 +56,7 @@ fi
 printf '%s  %s\n' "$digest" "$(basename "$OUT_PATH")" > "$CHECKSUM_TMP"
 mv -f "$CHECKSUM_TMP" "$CHECKSUM_PATH"
 CHECKSUM_TMP=
+chmod 0644 "$OUT_PATH" "$CHECKSUM_PATH"
 
 echo "build-wasm-docker: wrote $OUT_PATH"
 echo "build-wasm-docker: wrote $CHECKSUM_PATH ($digest)"

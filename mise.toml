@@ -15,6 +15,21 @@ description = "Build WASM in Docker, refresh its digest, and run fixture checks"
 depends = ["wasm-build"]
 run = "./scripts/verify-wasm.sh && go test ./... -run 'TestBuiltinJSONWASMExportsRequiredABI|TestJSONParseMatchesNativeSExpressions|TestLanguageMetadata' -count=1"
 
+[tasks."build:grammar"]
+description = "Build one pinned official Tree-sitter grammar in Docker"
+usage = 'arg "<language>" help="official grammar name, for example javascript"'
+run = './scripts/build-grammar-docker.sh "${usage_language?}"'
+
+[tasks."test:grammar"]
+description = "Test generated grammar artifacts and run available parity checks"
+usage = 'arg "<language>" help="official grammar name, for example javascript"'
+run = './scripts/test-grammar.sh "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
+
+[tasks."check:grammar"]
+description = "Build one grammar and run its WASM/native checks"
+usage = 'arg "<language>" help="official grammar name, for example javascript"'
+run = './scripts/build-grammar-docker.sh "${usage_language?}" && ./scripts/test-grammar.sh "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
+
 [tasks.native-test]
 description = "Run the CGO native parity suite"
 run = "cd comparison && CGO_ENABLED=1 go test ./..."

@@ -64,6 +64,8 @@ jobs:
             comparison/go.sum
       - uses: jdx/mise-action@v2
       - run: mise run native-test
+      - name: Grammar artifact and native parity check
+        run: mise run test:grammar javascript
       - name: Native benchmark smoke test
         run: mise run native-bench
 

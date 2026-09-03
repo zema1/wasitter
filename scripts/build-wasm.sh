@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the bundled Tree-sitter runtime and JSON grammar into one WASI module.
+# Build the bundled Tree-sitter runtime and one grammar into a WASI module.
 #
 # The script intentionally uses a compiler already installed by the caller.
 # Zig is preferred because `zig cc` ships a deterministic wasm32-wasi libc;
@@ -35,9 +35,10 @@ BRIDGE="$ROOT/internal/wasm/src/sitterwasm_abi.c"
 INCLUDE="$ROOT/internal/wasm/include"
 
 # A grammar normally consists of parser.c and, optionally, one or more
-# external-scanner sources.  Keep the defaults convenient for the bundled JSON
-# fixture while allowing downstream projects to rebuild the same bridge for a
-# generated grammar without editing this script.  GRAMMAR_SRC may be an
+# external-scanner sources. C++ parser/scanner files are also accepted. Keep
+# the defaults convenient for the bundled JSON fixture while allowing
+# downstream projects to rebuild the same bridge for a generated grammar
+# without editing this script. GRAMMAR_SRC may be an
 # absolute path or a path relative to the repository root.  For convenience,
 # a relative value that is not found below the repository root is also tried
 # relative to GRAMMAR_SRC_DIR (for example `GRAMMAR_SRC=parser.c` together with
@@ -229,8 +230,17 @@ compile_cxx() {
   fi
 }
 
+NEEDS_CXX=0
 compile_c "$RUNTIME/lib.c" "$BUILD_DIR/tree-sitter.o"
-compile_c "$GRAMMAR_SRC" "$BUILD_DIR/grammar.o"
+case "$GRAMMAR_SRC" in
+  *.cc|*.cpp|*.cxx|*.C)
+    NEEDS_CXX=1
+    compile_cxx "$GRAMMAR_SRC" "$BUILD_DIR/grammar.o"
+    ;;
+  *)
+    compile_c "$GRAMMAR_SRC" "$BUILD_DIR/grammar.o"
+    ;;
+esac
 compile_c "$BRIDGE" "$BUILD_DIR/bridge.o"
 
 # Keep the historical object order for reproducible output.  POSIX `sh` has no
@@ -238,7 +248,6 @@ compile_c "$BRIDGE" "$BUILD_DIR/bridge.o"
 # small, correctly quoted object list; every append below adds one pathname as
 # one argument, even when BUILD_DIR contains spaces.
 set -- "$BUILD_DIR/tree-sitter.o" "$BUILD_DIR/grammar.o" "$BUILD_DIR/bridge.o"
-NEEDS_CXX=0
 
 if [ -n "$GRAMMAR_EXTRA_SRC" ]; then
   extra_index=0
@@ -384,5 +393,8 @@ fi
 # intentionally published only after a successful linker exit status.
 mv -f "$TMP_OUT" "$OUT"
 TMP_OUT=
+# WASM files are data, not executables. Normalize the mode so generated files
+# have the same portable permissions regardless of the compiler umask.
+chmod 0644 "$OUT"
 
 echo "build-wasm: wrote $OUT"

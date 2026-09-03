@@ -1,9 +1,9 @@
 # Native parity harness
 
 This directory is a separate Go module so the main `sitterwasm` module remains
-CGO-free. It builds the upstream Tree-sitter Go binding and the JSON grammar
-with CGO, then compares their parser, query, and cursor results with the
-portable WASM implementation.
+CGO-free. It builds the upstream Tree-sitter Go bindings for the checked-in
+grammar artifacts with CGO, then compares their parser, query, and cursor
+results with the portable WASM implementation.
 
 Run the checks from the repository root with:
 
@@ -12,10 +12,13 @@ mise run native-test
 mise run native-bench
 ```
 
-The harness intentionally pins the native dependencies to the same runtime
-and grammar releases used by the checked-in fixture (`go-tree-sitter` v0.25.0
-and `tree-sitter-json` v0.24.8). It is a development/CI comparison tool, not a
-dependency of applications importing `sitterwasm`.
+The harness intentionally pins the native dependencies to the same runtime and
+grammar releases recorded in the registry (the core runtime is
+`go-tree-sitter` v0.25.0). `TestGrammarParity` discovers generated artifacts
+and compares each one for which a native binding and fixture are registered.
+When adding a grammar, add its native module and fixture in
+`grammar_parity_test.go` as part of the same change. This is a development/CI
+comparison tool, not a dependency of applications importing `sitterwasm`.
 
 ## Benchmark methodology
 

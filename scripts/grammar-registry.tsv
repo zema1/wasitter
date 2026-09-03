@@ -1,0 +1,17 @@
+# Pinned official grammar sources. Fields: name, GitHub repository, release
+# tag, source-archive SHA-256, parser path, scanner path(s) (or -), C
+# language function, and exported language name. Separate multiple scanner
+# paths with spaces; keep one row per grammar.
+# name	repository	tag	archive_sha256	parser	scanner	language_function	language_name
+json	tree-sitter/tree-sitter-json	v0.24.8	acf6e8362457e819ed8b613f2ad9a0e1b621a77556c296f3abea58f7880a9213	src/parser.c	-	tree_sitter_json	json
+javascript	tree-sitter/tree-sitter-javascript	v0.25.0	9712fc283d3dc01d996d20b6392143445d05867a7aad76fdd723824468428b86	src/parser.c	src/scanner.c	tree_sitter_javascript	javascript
+python	tree-sitter/tree-sitter-python	v0.25.0	4609a3665a620e117acf795ff01b9e965880f81745f287a16336f4ca86cf270c	src/parser.c	src/scanner.c	tree_sitter_python	python
+rust	tree-sitter/tree-sitter-rust	v0.24.2	061e90a539a55a6aa65dceb0ad6425c50ab1a6e3e6d4ba430e2795ed4550f10e	src/parser.c	src/scanner.c	tree_sitter_rust	rust
+go	tree-sitter/tree-sitter-go	v0.25.0	2dc241b97872c53195e01b86542b411a3c1a6201d9c946c78d5c60c063bba1ef	src/parser.c	-	tree_sitter_go	go
+typescript	tree-sitter/tree-sitter-typescript	v0.23.2	2c4ce711ae8d1218a3b2f899189298159d672870b5b34dff5d937bed2f3e8983	typescript/src/parser.c	typescript/src/scanner.c	tree_sitter_typescript	typescript
+tsx	tree-sitter/tree-sitter-typescript	v0.23.2	2c4ce711ae8d1218a3b2f899189298159d672870b5b34dff5d937bed2f3e8983	tsx/src/parser.c	tsx/src/scanner.c	tree_sitter_tsx	tsx
+c	tree-sitter/tree-sitter-c	v0.24.2	2eeb4db31f8fa0865e45488503d13403923bcb485a1bdb637abff8c42dd97364	src/parser.c	-	tree_sitter_c	c
+cpp	tree-sitter/tree-sitter-cpp	v0.23.4	7a2c55afe3028f4105f25762ea58cc16537d1f5a1dcd9cca90410b3cd5d46051	src/parser.c	src/scanner.c	tree_sitter_cpp	cpp
+java	tree-sitter/tree-sitter-java	v0.23.5	cb199e0faae4b2c08425f88cbb51c1a9319612e7b96315a174a624db9bf3d9f0	src/parser.c	-	tree_sitter_java	java
+ruby	tree-sitter/tree-sitter-ruby	v0.23.1	e7e49577ddc1f2de8e42d42353b477e338c15bbb95b2558e123ddc13d88789f0	src/parser.c	src/scanner.c	tree_sitter_ruby	ruby
+bash	tree-sitter/tree-sitter-bash	v0.25.1	2e785a761225b6c433410ef9c7b63cfb0a4e83a35a19e0f2aec140b42c06b52d	src/parser.c	src/scanner.c	tree_sitter_bash	bash
