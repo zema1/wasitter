@@ -1,0 +1,24 @@
+# mise is the canonical entry point for generating and checking the bundled
+# Tree-sitter WebAssembly artifact. The build task delegates compiler work to
+# Docker, so the host only needs mise and Docker; Zig/wasi-sdk are not needed.
+
+[tasks.wasm-build]
+description = "Build the bundled Tree-sitter WASM artifact in Docker"
+run = "./scripts/build-wasm-docker.sh"
+
+[tasks.wasm-verify]
+description = "Verify the checked-in WASM artifact and its SHA-256 digest"
+run = "./scripts/verify-wasm.sh"
+
+[tasks.wasm-check]
+description = "Build WASM in Docker, refresh its digest, and run fixture checks"
+depends = ["wasm-build"]
+run = "./scripts/verify-wasm.sh && go test ./... -run 'TestBuiltinJSONWASMExportsRequiredABI|TestJSONParseMatchesNativeSExpressions|TestLanguageMetadata' -count=1"
+
+[tasks.native-test]
+description = "Run the CGO native parity suite"
+run = "cd comparison && CGO_ENABLED=1 go test ./..."
+
+[tasks.native-bench]
+description = "Run the CGO native benchmark suite"
+run = "cd comparison && CGO_ENABLED=1 go test -run '^$' -bench . -benchmem"

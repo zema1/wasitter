@@ -1,0 +1,27 @@
+[
+  {
+    "name": "empty",
+    "source": "",
+    "sexp": "(document)"
+  },
+  {
+    "name": "scalar",
+    "source": "123",
+    "sexp": "(document (number))"
+  },
+  {
+    "name": "nested",
+    "source": "{\"name\":\"sitterwasm\",\"items\":[true,null,42]}",
+    "sexp": "(document (object (pair key: (string (string_content)) value: (string (string_content))) (pair key: (string (string_content)) value: (array (true) (null) (number)))))"
+  },
+  {
+    "name": "unicode",
+    "source": "{\"语言\":\"树🌳\"}",
+    "sexp": "(document (object (pair key: (string (string_content)) value: (string (string_content)))))"
+  },
+  {
+    "name": "comments-and-error",
+    "source": "{\"a\": 1,}",
+    "sexp": "(document (object (pair key: (string (string_content)) value: (number)) (ERROR)))"
+  }
+]

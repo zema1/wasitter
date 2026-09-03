@@ -1,0 +1,12 @@
+# Local compiler output and temporary parity probes.
+.tmp/
+*.tmp
+
+# Go build/test output.
+*.test
+*.out
+
+# Editor/OS noise.
+.DS_Store
+/.idea/
+/.vscode/

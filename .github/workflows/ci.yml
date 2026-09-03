@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Go ${{ matrix.go }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.23.x", stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache-dependency-path: |
+            go.sum
+            comparison/go.sum
+      - uses: jdx/mise-action@v2
+      - name: Test without CGO
+        run: go test ./...
+        env:
+          CGO_ENABLED: "0"
+      - name: Race test
+        if: matrix.go == 'stable'
+        run: go test -race ./...
+      - name: Test through Go's JavaScript/WebAssembly host
+        if: matrix.go == 'stable'
+        run: go test -exec="$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: js
+          GOARCH: wasm
+      - name: Verify checked-in WASM fixture
+        if: matrix.go == 'stable'
+        run: mise run wasm-verify
+      - name: Benchmark smoke test
+        if: matrix.go == 'stable'
+        run: go test -run '^$' -bench . -benchtime=1x -benchmem ./...
+
+  native-parity:
+    name: Native parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: |
+            go.sum
+            comparison/go.sum
+      - uses: jdx/mise-action@v2
+      - run: mise run native-test
+      - name: Native benchmark smoke test
+        run: mise run native-bench
+
+  cross-compile:
+    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: "386"
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: riscv64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: js
+            goarch: wasm
+          - goos: wasip1
+            goarch: wasm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: go.sum
+      - name: Compile tests
+        run: go test -c -o "${RUNNER_TEMP}/sitterwasm-${GOOS}-${GOARCH}.test" .
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
