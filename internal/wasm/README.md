@@ -22,37 +22,40 @@ mise run build:grammar javascript
 mise run test:grammar javascript
 ```
 
-The task reads `scripts/grammar-registry.tsv`, downloads the exact tagged
-source archive in Docker, verifies its archive SHA-256, compiles the parser and
-any listed external scanner, and writes both the WASM file and its adjacent
-`.sha256` file under `assets/`. See the root README for the current registry
-and the procedure for adding a row. A row is intentionally required for each
-grammar so builds remain reviewable and reproducible; repositories containing
-multiple grammars get one explicit row per grammar.
+The task delegates to the CGO-free `cmd/sitterwasm-build` helper and reads
+`scripts/grammar-registry.json`. It downloads the exact tagged source archive
+in Docker, verifies its archive SHA-256, compiles the parser and any listed
+external scanner, and writes both the WASM file and its adjacent `.sha256` file
+under `assets/`. See the root README for the current registry and the procedure
+for adding an object. An object is intentionally required for each grammar so
+builds remain reviewable and reproducible; repositories containing multiple
+grammars get one explicit object per grammar.
 
-The fixed `wasm-build` task runs `scripts/build-wasm.sh` inside the pinned
-Docker image in `docker/wasm-builder/`, updates the adjacent checksum, and uses
-only checked-in files under `internal/wasm/third_party` for the default build.
-The
-host does not need Zig, wasi-sdk, or a C compiler. Repeated builds with the
-same image and sources are byte-for-byte reproducible. The directory
-deliberately avoids Go's special `vendor` name so these sources and their
-licenses remain in published module zip files.
+The fixed `wasm-build` task runs the same Go helper inside the pinned Docker
+image in `docker/wasm-builder/`; the helper invokes Zig (or an explicitly
+selected clang) directly for the low-level C/C++ compile, updates the adjacent
+checksum, and uses only checked-in files under `internal/wasm/third_party` for
+the default build. The host needs Go, mise, and Docker, but not Zig, wasi-sdk,
+or a C compiler. Repeated builds with the same image and sources are
+byte-for-byte reproducible. The directory deliberately avoids Go's special
+`vendor` name so these sources and their licenses remain in published module
+zip files.
 
-The low-level `WASM_CC=/path/to/zig ./scripts/build-wasm.sh` command remains
-available for debugging or environments that intentionally do not use Docker.
+All build logic is implemented by `cmd/sitterwasm-build` and
+`internal/grammarbuild`. Docker mounts a small Go helper and the checkout; the
+container invokes the compiler through an argument vector, with no shell
+entrypoint or host compiler environment variables.
 
 The checked-in artifacts were built with Zig 0.15.2 in the pinned builder
 image. Their SHA-256 digests are recorded in the sidecars
 `assets/sitterwasm-json.wasm.sha256` and
 `assets/sitterwasm-javascript.wasm.sha256`. Run `mise run wasm-verify` (or
-`../../scripts/verify-wasm.sh`) to validate the JSON digest without rebuilding;
-`mise run test:grammar <language>` validates any selected grammar artifact
-offline before running its semantic parity checks.
-Builds are published through
-an atomic sibling-file rename, so a compiler failure leaves an existing output
-untouched.
-See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the source and statically
+`go run ./cmd/sitterwasm-build verify-wasm`) to validate the JSON digest
+without rebuilding. `mise run test:grammar <language>` validates any selected
+grammar artifact offline before running its semantic parity checks. Builds are
+published through an atomic sibling-file rename, so a compiler failure leaves
+an existing output untouched. See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for the source and statically
 linked toolchain notices that accompany it.
 
 The adapter uses 32-bit opaque handles because all pointers in wasm32 are
@@ -87,31 +90,19 @@ the capture records). The Go host uses it to evaluate built-in text predicates
 without changing capture ordering; older bridge modules may omit this export
 and continue to use the compatibility path.
 
-To build a different grammar, replace `third_party/tree-sitter-json/parser.c`
-and define `SITTERWASM_LANGUAGE_FN` (and optionally
-`SITTERWASM_LANGUAGE_NAME`) in the bridge compile flags. Grammars with external
-scanners may add C or C++ scanner sources to the three-object link in
-`scripts/build-wasm.sh`. Parser and scanner extensions `.cc`, `.cpp`, `.cxx`,
-and `.C` select the C++ frontend and linker; set `WASM_CXX` explicitly when the matching
-wasi-sdk `clang++` cannot be inferred from `WASM_CC`. C++ scanner compilation
-disables exceptions and RTTI, matching the constraints normally used by
-Tree-sitter WASM grammars.
-`RUNTIME_SRC_DIR`, `GRAMMAR_SRC_DIR`, and `GRAMMAR_SRC` can be used to point at
-repository-relative or absolute replacement sources; relative paths are
-resolved from the project root, regardless of the caller's working directory.
-When `GRAMMAR_SRC` (or an entry in `GRAMMAR_EXTRA_SRC`) is not found at that
-root-relative path, it is also tried relative to `GRAMMAR_SRC_DIR`, so a short
-`GRAMMAR_SRC=parser.c` works naturally with an out-of-tree grammar directory.
-Single source, output, and temporary-directory paths are passed to the
-compiler without shell word splitting, including paths containing spaces. The
-documented `GRAMMAR_EXTRA_SRC` value remains a whitespace-separated list, so
-individual entries in that list should use whitespace-free paths. The grammar
-registry uses the same representation when a grammar has multiple scanners.
+To build another official grammar, add a reviewed object to
+`scripts/grammar-registry.json` and run `mise run check:grammar <language>`.
+The object records the parser path, a `scanners` array (which may be empty),
+the C language constructor, and the exported language name. Parser and scanner
+paths ending in `.cc`, `.cpp`, `.cxx`, or `.C` automatically select the C++
+frontend and linker; C++ compilation disables exceptions and RTTI, matching
+Tree-sitter's WASM build constraints. Multiple grammars in one upstream
+repository require one object per grammar and explicit source paths. Private
+grammars are outside this repository's pinned release workflow.
 
 The standard `mise run wasm-build` task builds the checked-in JSON fixture.
-Parameterized official grammar tasks use the registry workflow above. Sources
-outside the checkout are intended for the low-level script and must be
-provided through its documented source variables.
+Parameterized official grammar tasks use the registry workflow above. Keeping
+all source pins in the registry makes builds auditable and reproducible.
 
 The vendored source licenses are documented in
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

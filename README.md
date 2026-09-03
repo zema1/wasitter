@@ -57,12 +57,20 @@ Tree-sitter's byte offsets and node semantics.
 
 `mise` is the canonical entry point. Every build runs the compiler inside a
 pinned Docker image, refreshes the adjacent SHA-256 file, and leaves the WASM
-artifact in the repository:
+artifact in the repository. The task delegates orchestration to the
+CGO-free `cmd/sitterwasm-build` Go command, so registry parsing and Docker
+argument handling do not depend on a host shell:
 
 ```sh
 mise run wasm-build       # Docker build + WASM generation + checksum update
 mise run wasm-verify      # verify the checked-in artifact only
 mise run wasm-check       # rebuild, verify, and run fixture checks
+```
+
+The command can also be invoked directly while developing the build workflow:
+
+```sh
+go run ./cmd/sitterwasm-build build-grammar javascript
 ```
 
 To build an official grammar selected by name, pass one argument:
@@ -74,12 +82,16 @@ mise run check:grammar javascript  # build followed by the two checks above
 ```
 
 `build:grammar` downloads the exact release and source-archive digest recorded
-in [`scripts/grammar-registry.tsv`](scripts/grammar-registry.tsv), then invokes
-the same ABI bridge used by the bundled JSON artifact. The output files are
-`internal/wasm/assets/sitterwasm-<language>.wasm` and its `.sha256` sidecar;
+in [`scripts/grammar-registry.json`](scripts/grammar-registry.json), then
+invokes the same ABI bridge used by the bundled JSON artifact. The output files
+are `internal/wasm/assets/sitterwasm-<language>.wasm` and its `.sha256` sidecar;
 commit both files when the grammar is intended to be part of the package.
 `go:embed` discovers every checked-in `sitterwasm-*.wasm` file, and
 `BuiltinWASM("<language>")` can retrieve it at runtime.
+
+The registry uses JSON rather than YAML so the CGO-free build command can use
+Go's standard library without adding a parser dependency; the versioned object
+and arrays remain easy to review and edit.
 
 The registry is a deliberately pinned allowlist rather than an unversioned
 "latest" downloader. It currently covers:
@@ -99,68 +111,50 @@ The registry is a deliberately pinned allowlist rather than an unversioned
 | tsx | tree-sitter-typescript v0.23.2 | C |
 | typescript | tree-sitter-typescript v0.23.2 | C |
 
-To add another official grammar, add a fully pinned row (repository, release
-tag, archive SHA-256, parser path, optional scanner path(s), C language
-function, and exported language name), then run `mise run check:grammar
-<name>`. Repos that contain multiple grammars (such as TypeScript/TSX), C++
-scanners, multiple scanner files, or non-standard generated-source layouts need
-explicit rows and source paths. Scanner paths are whitespace-separated and
-must not themselves contain whitespace.
+To add another official grammar, add a fully pinned object (repository, release
+tag, archive SHA-256, parser path, optional `scanners` path array, C language
+function, and exported language name) to the `grammars` array in
+[`scripts/grammar-registry.json`](scripts/grammar-registry.json), then run
+`mise run check:grammar <name>`. Repos that contain multiple grammars (such as
+TypeScript/TSX), C++ scanners, multiple scanner files, or non-standard
+generated-source layouts need explicit objects and source paths. The registry
+loader validates the schema, rejects duplicate names and unsafe paths, and
+only permits official Tree-sitter repositories.
 The build intentionally fails for names absent from the registry so a typo or
 an unreviewed network dependency cannot silently produce a release artifact.
 
-The host therefore needs only `mise` and Docker; it does not need Zig,
-wasi-sdk, a C compiler, or CGO. The image is based on a pinned Alpine digest
-and downloads Zig 0.15.2 with a verified SHA-256 checksum. Docker caches the
-builder image, so subsequent builds do not redownload the toolchain.
+The host therefore needs Go, `mise`, and Docker; it does not need Zig, wasi-sdk,
+a C compiler, or CGO. The Go command builds a small static helper, mounts it
+with the checkout, and performs the source download, archive verification,
+extraction, and compilation inside the pinned container. The image is based on
+a pinned Alpine digest and downloads Zig 0.15.2 with a verified SHA-256
+checksum. Docker caches the builder image, so subsequent builds do not
+redownload the toolchain.
 
-The low-level [`scripts/build-wasm.sh`](scripts/build-wasm.sh) driver remains
-available for advanced users who intentionally provide a compiler on the host;
-normal development and release builds should use the mise task above. It
-accepts its existing variables for custom grammar experiments, but those are
-outside the fixed release workflow. See
+The Go command is the only supported build implementation. It receives
+registry metadata as structured values and invokes the compiler directly inside
+Docker; no compiler or source-path environment variables are required. See
 [`internal/wasm/README.md`](internal/wasm/README.md) for the ABI and custom
-grammar build notes (including out-of-tree grammars and external scanners),
+grammar registry notes (including multi-file external scanners),
 and
 [`internal/wasm/THIRD_PARTY_NOTICES.md`](internal/wasm/THIRD_PARTY_NOTICES.md)
 for third-party license information.
 
 The expected SHA-256 is kept beside each artifact (for example,
-`internal/wasm/assets/sitterwasm-json.wasm.sha256`). Both the Docker wrapper and
-the low-level build script link through temporary sibling files and publish
-only after a successful link, so a failed build cannot truncate an existing
-artifact.
+`internal/wasm/assets/sitterwasm-json.wasm.sha256`). The Go command links
+through temporary sibling files and publishes only after a successful link, so
+a failed build cannot truncate an existing artifact.
 
-## Building a custom grammar
-
-For a private or otherwise unregistered grammar, invoke the low-level script
-directly with its documented source variables. The `wasm-build` task remains
-the fixed JSON fixture workflow; the parameterized `build:grammar` task is for
-rows explicitly pinned in the registry:
-
-```sh
-GRAMMAR_SRC_DIR=/absolute/path/to/tree-sitter-python/src \
-GRAMMAR_SRC=parser.c \
-GRAMMAR_EXTRA_SRC=scanner.c \
-SITTERWASM_LANGUAGE_FN=tree_sitter_python \
-SITTERWASM_LANGUAGE_NAME=python \
-OUT=./tree-sitter-python.wasm \
-./scripts/build-wasm.sh
-```
-
-Omit `GRAMMAR_EXTRA_SRC` for grammars without an external scanner. Parser or
-scanner files ending in `.cc`, `.cpp`, `.cxx`, or `.C` are compiled and linked
-as C++; when using
-wasi-sdk, set `WASM_CXX=/path/to/clang++` if it is not next to `WASM_CC`.
-As in Tree-sitter's own WASM builds, C++ scanners are compiled without
-exceptions or RTTI. Load the result with `NewRuntime`, resolve it with
-`Runtime.LoadLanguage("python")`, then create a parser with
-`NewParserWithRuntime` and call `SetLanguage`. The grammar's generated language
-ABI must be supported by the bundled runtime.
+Private or otherwise unregistered grammars are intentionally outside the
+release workflow. Add an explicitly reviewed official grammar object to
+[`scripts/grammar-registry.json`](scripts/grammar-registry.json) before
+building it; this keeps source pins, scanner paths, and language entry points
+auditable. The generated artifact can then be loaded with `NewRuntimeFromFile`
+or `NewRuntime` and `Runtime.LoadLanguage`.
 
 ### Updating Tree-sitter or a grammar
 
-Keep the runtime sources, generated grammar sources, registry row, and native
+Keep the runtime sources, generated grammar sources, registry object, and native
 comparison module on compatible Tree-sitter releases. For a registry grammar,
 run `mise run check:grammar <language>`; it downloads and builds in Docker,
 refreshes the sidecar digest, and exercises both the WASM smoke test and native
@@ -186,8 +180,7 @@ project aims for semantic parity, rather than promising bit-for-bit or
 - A grammar must be generated against a compatible Tree-sitter language ABI
   (13 through 15 for the bundled runtime). The embedded artifacts are the
   checked-in files under `internal/wasm/assets`; use
-  `mise run build:grammar <language>` for a pinned official grammar or the
-  documented `scripts/build-wasm.sh` interface for a private/custom grammar.
+  `mise run build:grammar <language>` for a pinned official grammar.
 - Tree coordinates exposed by this package are UTF-8 byte offsets and byte
   columns. `ParseUTF16LE`/`ParseUTF16BE` decode the supplied Go `[]uint16` into
   UTF-8 before parsing, so offsets in the returned tree refer to that UTF-8
@@ -260,7 +253,7 @@ mise run native-test
 mise run native-bench
 ```
 
-`mise run test:grammar <language>` first checks that the requested registry row,
+`mise run test:grammar <language>` first checks that the requested registry object,
 WASM file, and checksum all exist (this part is offline and does not require
 Docker). It then runs a small parse smoke test in the CGO-free module and
 compares S-expressions, node metadata, tree shape, and a wildcard query against

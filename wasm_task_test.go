@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -27,50 +28,50 @@ func TestWASMBuildTaskEntrypoint(t *testing.T) {
 			t.Fatalf("mise.toml does not define %s", task)
 		}
 	}
-	if !strings.Contains(config, "build-wasm-docker.sh") {
-		t.Fatal("wasm-build task does not use the Docker entrypoint")
+	if !strings.Contains(config, "go run ./cmd/sitterwasm-build") {
+		t.Fatal("mise tasks do not use the Go build command")
 	}
-
-	if runtime.GOOS == "windows" {
-		t.Skip("the build helper is a POSIX shell script")
+	if strings.Contains(config, ".sh") {
+		t.Fatal("mise tasks must not depend on shell entrypoint scripts")
 	}
-	sh, err := exec.LookPath("sh")
-	if err != nil {
-		t.Skip("POSIX shell is unavailable")
-	}
-	for _, script := range []string{
-		"scripts/build-wasm-docker.sh",
-		"scripts/build-wasm.sh",
-		"scripts/verify-wasm.sh",
-		"scripts/build-grammar-docker.sh",
-		"scripts/build-grammar-in-container.sh",
-		"scripts/test-grammar.sh",
-	} {
-		if output, err := exec.Command(sh, "-n", script).CombinedOutput(); err != nil {
-			t.Fatalf("%s has invalid shell syntax: %v\n%s", script, err, output)
-		}
+	if _, err := os.Stat(filepath.Join("scripts", "grammar-registry.json")); err != nil {
+		t.Fatalf("JSON grammar registry is unavailable: %v", err)
 	}
 }
 
 func TestGrammarTestTaskRejectsUnknownLanguage(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("the grammar helper is a POSIX shell script")
+	if runtime.GOOS == "js" || runtime.GOOS == "wasip1" {
+		t.Skip("cannot execute a host Go subprocess from this target")
 	}
-	sh, err := exec.LookPath("sh")
-	if err != nil {
-		t.Skip("POSIX shell is unavailable")
-	}
-
-	cmd := exec.Command(sh, "scripts/test-grammar.sh", "not-a-registered-language")
+	cmd := exec.Command("go", "run", "./cmd/sitterwasm-build", "test-grammar", "not-a-registered-language")
 	output, runErr := cmd.CombinedOutput()
 	var exitErr *exec.ExitError
 	if !errors.As(runErr, &exitErr) {
-		t.Fatalf("test-grammar error = %v, want an exit error; output: %s", runErr, output)
+		t.Fatalf("sitterwasm-build error = %v, want an exit error; output: %s", runErr, output)
 	}
-	if exitErr.ExitCode() != 2 {
-		t.Fatalf("test-grammar exit code = %d, want 2; output: %s", exitErr.ExitCode(), output)
+	if exitErr.ExitCode() == 0 {
+		t.Fatalf("sitterwasm-build exit code = %d, want non-zero; output: %s", exitErr.ExitCode(), output)
 	}
 	if !strings.Contains(string(output), "not in the official grammar registry") {
-		t.Fatalf("test-grammar output = %q, want registry diagnostic", output)
+		t.Fatalf("sitterwasm-build output = %q, want registry diagnostic", output)
+	}
+}
+
+func TestGrammarCommandRejectsShellSyntaxAsLanguage(t *testing.T) {
+	if runtime.GOOS == "js" || runtime.GOOS == "wasip1" {
+		t.Skip("cannot execute a host Go subprocess from this target")
+	}
+	marker := filepath.Join(t.TempDir(), "injected")
+	malicious := "bad;touch " + marker
+	cmd := exec.Command("go", "run", "./cmd/sitterwasm-build", "test-grammar", malicious)
+	output, runErr := cmd.CombinedOutput()
+	if runErr == nil {
+		t.Fatal("sitterwasm-build unexpectedly accepted shell syntax")
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("language argument caused command injection (marker stat error: %v); output: %s", err, output)
+	}
+	if !strings.Contains(string(output), "invalid language name") {
+		t.Fatalf("sitterwasm-build output = %q, want invalid-language diagnostic", output)
 	}
 }

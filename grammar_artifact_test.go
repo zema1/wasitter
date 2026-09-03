@@ -1,15 +1,14 @@
 package sitterwasm_test
 
 import (
-	"bufio"
 	"context"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	sitterwasm "github.com/zema1/sitterwasm"
+	"github.com/zema1/sitterwasm/internal/grammarbuild"
 )
 
 // TestGeneratedGrammarWASM is intentionally artifact-driven. A grammar task
@@ -24,12 +23,26 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 	if len(paths) == 0 {
 		t.Fatal("no generated grammar artifacts found")
 	}
+	registry, err := grammarbuild.LoadRegistry(filepath.Join("scripts", "grammar-registry.json"))
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
 	for _, path := range paths {
 		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "sitterwasm-"), ".wasm")
 		t.Run(name, func(t *testing.T) {
+			grammar, err := registry.Lookup(name)
+			if err != nil {
+				t.Fatalf("artifact %q is not registered: %v", name, err)
+			}
+			if grammar.Name != name {
+				t.Fatalf("registry name = %q, want %q", grammar.Name, name)
+			}
 			wasm, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if _, err := grammarbuild.VerifyArtifact(path, path+".sha256"); err != nil {
+				t.Fatalf("VerifyArtifact: %v", err)
 			}
 			rt, err := sitterwasm.NewRuntime(context.Background(), wasm)
 			if err != nil {
@@ -66,66 +79,26 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 }
 
 func TestGrammarRegistryIsWellFormed(t *testing.T) {
-	f, err := os.Open(filepath.Join("scripts", "grammar-registry.tsv"))
+	registry, err := grammarbuild.LoadRegistry(filepath.Join("scripts", "grammar-registry.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
 	seen := make(map[string]struct{})
-	lineNumber := 0
-	for scanner.Scan() {
-		lineNumber++
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		fields := strings.Split(scanner.Text(), "\t")
-		if len(fields) != 8 {
-			t.Fatalf("registry line %d has %d fields, want 8", lineNumber, len(fields))
-		}
-		name := fields[0]
-		if !validGrammarName(name) {
-			t.Fatalf("registry line %d has invalid language name %q", lineNumber, name)
-		}
+	for _, grammar := range registry.Grammars {
+		name := grammar.Name
 		if _, ok := seen[name]; ok {
 			t.Fatalf("registry contains duplicate language %q", name)
 		}
 		seen[name] = struct{}{}
-		if len(fields[3]) != 64 {
-			t.Fatalf("registry line %d has malformed archive SHA-256", lineNumber)
+		if err := grammar.Validate(); err != nil {
+			t.Fatalf("registry grammar %q is invalid: %v", name, err)
 		}
-		if _, err := hex.DecodeString(fields[3]); err != nil {
-			t.Fatalf("registry line %d has malformed archive SHA-256: %v", lineNumber, err)
-		}
-		for index, field := range fields[1:] {
-			if field == "" {
-				t.Fatalf("registry line %d has empty field %d", lineNumber, index+2)
-			}
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
 	}
 	for _, required := range []string{"json", "javascript"} {
 		if _, ok := seen[required]; !ok {
 			t.Fatalf("registry is missing required language %q", required)
 		}
 	}
-}
-
-func validGrammarName(name string) bool {
-	if name == "" {
-		return false
-	}
-	for _, r := range name {
-		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') &&
-			(r < '0' || r > '9') && r != '_' && r != '-' {
-			return false
-		}
-	}
-	return true
 }
 
 func generatedGrammarSample(language string) string {

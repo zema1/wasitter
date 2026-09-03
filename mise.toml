@@ -1,34 +1,35 @@
 # mise is the canonical entry point for generating and checking the bundled
 # Tree-sitter WebAssembly artifact. The build task delegates compiler work to
-# Docker, so the host only needs mise and Docker; Zig/wasi-sdk are not needed.
+# Docker, so the host only needs Go, mise, and Docker; Zig/wasi-sdk are not
+# needed.
 
 [tasks.wasm-build]
 description = "Build the bundled Tree-sitter WASM artifact in Docker"
-run = "./scripts/build-wasm-docker.sh"
+run = "go run ./cmd/sitterwasm-build build-wasm"
 
 [tasks.wasm-verify]
 description = "Verify the checked-in WASM artifact and its SHA-256 digest"
-run = "./scripts/verify-wasm.sh"
+run = "go run ./cmd/sitterwasm-build verify-wasm"
 
 [tasks.wasm-check]
 description = "Build WASM in Docker, refresh its digest, and run fixture checks"
 depends = ["wasm-build"]
-run = "./scripts/verify-wasm.sh && go test ./... -run 'TestBuiltinJSONWASMExportsRequiredABI|TestJSONParseMatchesNativeSExpressions|TestLanguageMetadata' -count=1"
+run = "go run ./cmd/sitterwasm-build verify-wasm && go test ./... -run 'TestBuiltinJSONWASMExportsRequiredABI|TestJSONParseMatchesNativeSExpressions|TestLanguageMetadata' -count=1"
 
 [tasks."build:grammar"]
 description = "Build one pinned official Tree-sitter grammar in Docker"
 usage = 'arg "<language>" help="official grammar name, for example javascript"'
-run = './scripts/build-grammar-docker.sh "${usage_language?}"'
+run = 'go run ./cmd/sitterwasm-build build-grammar "${usage_language?}"'
 
 [tasks."test:grammar"]
 description = "Test generated grammar artifacts and run available parity checks"
 usage = 'arg "<language>" help="official grammar name, for example javascript"'
-run = './scripts/test-grammar.sh "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
+run = 'go run ./cmd/sitterwasm-build test-grammar "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
 
 [tasks."check:grammar"]
 description = "Build one grammar and run its WASM/native checks"
 usage = 'arg "<language>" help="official grammar name, for example javascript"'
-run = './scripts/build-grammar-docker.sh "${usage_language?}" && ./scripts/test-grammar.sh "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
+run = 'go run ./cmd/sitterwasm-build check-grammar "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
 
 [tasks.native-test]
 description = "Run the CGO native parity suite"

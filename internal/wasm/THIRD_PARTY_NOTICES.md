@@ -17,8 +17,8 @@ license. Its pinned GitHub source archive has SHA-256
 The JSON registry archive (v0.24.8) has SHA-256
 `acf6e8362457e819ed8b613f2ad9a0e1b621a77556c296f3abea58f7880a9213`.
 The complete set of release pins, parser paths, scanner paths, and language
-entry points is maintained in
-[`../../scripts/grammar-registry.tsv`](../../scripts/grammar-registry.tsv).
+entry points is maintained in the JSON registry at
+[`../../scripts/grammar-registry.json`](../../scripts/grammar-registry.json).
 
 The Tree-sitter source snapshot includes ICU-derived Unicode headers under
 `third_party/tree-sitter/unicode`. Their Unicode/ICU notices and license terms
