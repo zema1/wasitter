@@ -753,6 +753,14 @@ func collectUTF8Input(read func(offset uint32, point Point) []byte) ([]byte, err
 		if len(chunk) == 0 {
 			return all, nil
 		}
+		// Check the wasm32 limit before growing the host slice.  Apart from
+		// avoiding an overflow in the callback offset on the next iteration,
+		// this keeps a malicious or accidental callback from forcing an
+		// allocation larger than the ABI can represent only to reject it after
+		// append has already consumed the memory.
+		if uint64(len(all))+uint64(len(chunk)) > uint64(^uint32(0)) {
+			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
+		}
 		all = append(all, chunk...)
 		for _, b := range chunk {
 			if b == '\n' {
@@ -761,9 +769,6 @@ func collectUTF8Input(read func(offset uint32, point Point) []byte) ([]byte, err
 			} else {
 				point.Column++
 			}
-		}
-		if uint64(len(all)) > uint64(^uint32(0)) {
-			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
 		}
 	}
 	return nil, io.ErrNoProgress

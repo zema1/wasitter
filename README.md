@@ -53,6 +53,18 @@ checked-in artifacts, `NewBuiltinRuntime(ctx, "javascript")` and
 The public API uses Go values (`Point`, `Range`, `InputEdit`) while keeping
 Tree-sitter's byte offsets and node semantics.
 
+For new code, prefer the strongly typed context methods such as
+`ParseWithOptionsContext`, `ParseInputWithOptionsCtx`, and the constructors in
+`builtin.go`. A few methods (including `ParseWithOptions` and query iteration
+helpers) accept `any` arguments to preserve source compatibility with older
+Tree-sitter Go bindings. The typed methods provide compile-time checking and
+are the stable examples used in this README.
+
+Parsers and runtimes are safe to close more than once. A parser must be closed
+before its runtime; trees, queries, and cursors should be closed before the
+parser that owns them. A single parser serializes parse operations, while
+separate parsers can run concurrently on the same runtime.
+
 ## Building WASM artifacts
 
 `mise` is the canonical entry point. Every build runs the compiler inside a
@@ -207,6 +219,23 @@ These restrictions keep the wire format portable and predictable. They should
 be treated as part of the module contract when comparing results with a native
 binding or when shipping a custom grammar module.
 
+## Security and trust boundaries
+
+The package executes a caller-selected WebAssembly module. `NewRuntime` does
+not verify that a module was produced by this repository; applications loading
+modules from outside the checked-in assets should authenticate and pin those
+bytes themselves. wazero provides the execution sandbox, and the default
+runtime only installs WASI preview-1 imports needed by the Tree-sitter C
+runtime. Supplying a custom `RuntimeConfig`, `ModuleConfig`, or import
+configuration can expand that boundary and should be reviewed accordingly.
+
+Malformed modules, grammars, and queries are expected to return Go errors, but
+resource limits remain an application concern. Set a context deadline or use
+`WithCloseOnContextDone` for untrusted or potentially expensive input, and
+bound input sizes before parsing. The package does not promise protection from
+denial-of-service caused by deliberately large inputs or pathological grammar
+queries.
+
 ## Tests and benchmarks
 
 The test suite compares the bundled parser's corpus and representative query
@@ -216,7 +245,9 @@ use. Run it with:
 
 ```sh
 go test ./...
+CGO_ENABLED=0 go test ./...
 go test -race ./...
+go vet ./...
 ```
 
 Parser, query, and runtime benchmarks are included in the repository:
@@ -260,3 +291,11 @@ compares S-expressions, node metadata, tree shape, and a wildcard query against
 the corresponding upstream native Go binding. This is a semantic parity check;
 upstream release archives and compiler toolchains are not expected to produce
 byte-for-byte identical WASM modules.
+
+## Contributing and license
+
+Development and release checks are documented in
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Security reports should follow
+[`SECURITY.md`](SECURITY.md). The project is distributed under the MIT license;
+embedded runtime, grammar, and toolchain notices are listed in
+[`internal/wasm/THIRD_PARTY_NOTICES.md`](internal/wasm/THIRD_PARTY_NOTICES.md).

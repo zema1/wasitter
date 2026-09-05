@@ -29,10 +29,16 @@ jobs:
             go.sum
             comparison/go.sum
       - uses: jdx/mise-action@v2
+      - name: Test with default toolchain settings
+        if: matrix.go == 'stable'
+        run: go test ./...
       - name: Test without CGO
         run: go test ./...
         env:
           CGO_ENABLED: "0"
+      - name: Vet
+        if: matrix.go == 'stable'
+        run: go vet ./...
       - name: Race test
         if: matrix.go == 'stable'
         run: go test -race ./...
@@ -46,6 +52,11 @@ jobs:
       - name: Verify checked-in WASM fixture
         if: matrix.go == 'stable'
         run: mise run wasm-verify
+      - name: Rebuild WASM artifact reproducibly
+        if: matrix.go == 'stable'
+        run: |
+          mise run wasm-check
+          git diff --exit-code -- internal/wasm/assets
       - name: Benchmark smoke test
         if: matrix.go == 'stable'
         run: go test -run '^$' -bench . -benchtime=1x -benchmem ./...

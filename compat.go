@@ -501,6 +501,12 @@ func collectUTF16Input(read func(offset int, point Point) []uint16) ([]uint16, e
 		if len(chunk) == 0 {
 			return all, nil
 		}
+		// Reject an unrepresentable code-unit offset before growing the host
+		// slice. This mirrors collectUTF8Input and prevents a malformed callback
+		// from consuming memory only to fail after the append.
+		if uint64(len(all))+uint64(len(chunk)) > uint64(^uint32(0)) {
+			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 code-unit offset")
+		}
 		all = append(all, chunk...)
 		for _, unit := range chunk {
 			if unit == '\n' {
@@ -509,9 +515,6 @@ func collectUTF16Input(read func(offset int, point Point) []uint16) ([]uint16, e
 			} else {
 				point.Column++
 			}
-		}
-		if uint64(len(all)) > uint64(^uint32(0)) {
-			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 code-unit offset")
 		}
 	}
 	return nil, fmt.Errorf("sitterwasm: input callback exceeded %d calls: %w", maxCalls, io.ErrNoProgress)

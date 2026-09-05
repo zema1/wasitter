@@ -549,7 +549,10 @@ func runDockerBundledWASM(ctx context.Context, root, image, platform string) err
 		return err
 	}
 	defer cleanup()
-	runArgs := []string{"run", "--rm", "--init", "--workdir", "/workspace"}
+	// Bundled WASM builds use only sources mounted from the checkout and the
+	// compiler already present in the pinned image. Disable networking so a
+	// build cannot accidentally depend on (or mutate) external state.
+	runArgs := []string{"run", "--rm", "--init", "--network", "none", "--workdir", "/workspace"}
 	if platform != "" {
 		runArgs = append(runArgs, "--platform", platform)
 	}
