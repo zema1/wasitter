@@ -1,21 +1,39 @@
 # wasitter
 
-Tree-sitter for Go, backed by a portable `wasm32-wasi` module. The package
-embeds the upstream Tree-sitter C runtime and checked-in grammar artifacts, so
-ordinary Go builds do not require CGO, a C compiler, or a platform-specific
-shared library. JSON is bundled by default; additional official grammars can
-be generated and committed with the same workflow.
+[简体中文](README_CN.md) ·
+[Documentation](https://pkg.go.dev/github.com/zema1/wasitter) ·
+[Downloads](https://github.com/zema1/wasitter/releases)
 
-## Install
+wasitter brings [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) to Go
+using the upstream C implementation. It compiles the Tree-sitter runtime and
+language parsers into WebAssembly, then loads and runs them inside Go programs
+with [wazero](https://wazero.io/).
+
+## Features
+
+- No CGO, C compiler, or system shared libraries required. Build and cross-compile
+  with the standard Go toolchain.
+- Tracks upstream releases and reuses the original parsing implementation,
+  avoiding the bugs and maintenance burden of a separate rewrite.
+- Packages language support as individual WASM files that can be loaded on
+  demand, without bundling every language by default.
+- Provides a thin wrapper around the upstream API with Go conventions in mind.
+- Uses [native comparison tests](comparison/README.md) to check that key
+  behaviors match upstream Tree-sitter.
+
+> WASM execution and calls between Go and WASM add overhead compared with
+> native bindings. This performance cost is expected.
+
+## Quick start
+
+Requires **Go 1.23 or newer**.
 
 ```sh
 go get github.com/zema1/wasitter@latest
 ```
 
-The module requires Go 1.23 or newer. Its ordinary build path is pure Go and
-can be cross-compiled with `CGO_ENABLED=0`.
-
-## Quick start
+JavaScript and JSON parsers are embedded in the package. The following example
+uses the built-in JavaScript parser:
 
 ```go
 package main
@@ -25,315 +43,96 @@ import (
 	"fmt"
 	"log"
 
-	wasitter "github.com/zema1/wasitter"
+	"github.com/zema1/wasitter"
 )
 
 func main() {
-	ctx := context.Background()
-	parser, runtime, err := wasitter.NewJSONParser(ctx)
-	if err != nil {
+	if err := run(); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func run() error {
+	ctx := context.Background()
+	parser, runtime, err := wasitter.NewJavaScriptParser(ctx)
+	if err != nil {
+		return err
 	}
 	defer runtime.Close()
 	defer parser.Close()
 
-	tree, err := parser.Parse([]byte(`{"ok": true}`), nil)
+	source := []byte(`function greet(name) { return "Hello, " + name; }`)
+	tree, err := parser.ParseContext(ctx, source, nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer tree.Close()
-	fmt.Println(tree.RootNode().Type()) // document
+
+	function := tree.RootNode().NamedChild(0)
+	name := function.ChildByFieldName("name")
+	fmt.Println(name.Content(source)) // greet
+	return nil
 }
 ```
 
-`NewRuntime` accepts caller-supplied grammar module bytes; `NewLanguage` or
-`Runtime.LoadLanguage` then resolves the grammar exported by that runtime. For
-checked-in artifacts, `NewBuiltinRuntime(ctx, "javascript")` and
-`NewJavaScriptParser(ctx)` are convenient equivalents to the JSON helpers.
-The public API uses Go values (`Point`, `Range`, `InputEdit`) while keeping
-Tree-sitter's byte offsets and node semantics.
+The runtime runs the language module, and the parser turns source code into
+a tree. The example then finds the function node and reads its `name` field.
+For JSON, create the parser with `wasitter.NewJSONParser(ctx)`.
 
-For new code, prefer the strongly typed context methods such as
-`ParseWithOptionsContext`, `ParseInputWithOptionsCtx`, and the constructors in
-`builtin.go`. A few methods (including `ParseWithOptions` and query iteration
-helpers) accept `any` arguments to preserve source compatibility with older
-Tree-sitter Go bindings. The typed methods provide compile-time checking and
-are the stable examples used in this README.
+## Loading other languages
 
-Parsers and runtimes are safe to close more than once. Close trees, queries,
-cursors, and parsers before their runtime. Trees can outlive the parser that
-created them, but their runtime must remain open.
+Download WASM files from [Releases](https://github.com/zema1/wasitter/releases).
+Use the release matching the wasitter version in your project. Mixing versions
+is unsupported and may lead to incorrect behavior.
 
-For batches of files, create a parser/runtime once and reuse it. Close each
-file's tree promptly so its guest nodes are reclaimed:
+There are currently 12 supported languages: JavaScript, JSON, Bash, C, C++, Go,
+Java, Python, Ruby, Rust, TypeScript, and TSX.
+
+For Python, download **`wasitter-python.wasm`** to a location such as
+`grammars/wasitter-python.wasm`, then load it with the following setup:
 
 ```go
-parser, runtime, err := wasitter.NewJavaScriptParser(ctx)
+parser, runtime, err := wasitter.NewParserFromFile(ctx, "grammars/wasitter-python.wasm")
 if err != nil {
-    return err
+	return err
 }
 defer runtime.Close()
 defer parser.Close()
-for _, source := range sources {
-    tree, err := parser.ParseContext(ctx, source, nil)
-    if err != nil {
-        return err
-    }
-    // Read the tree here; retain it only if further work needs its nodes.
-    if err := tree.Close(); err != nil {
-        return err
-    }
-}
+
+source := []byte("def greet(name):\n    return name\n")
 ```
 
-A Runtime serializes guest execution, including calls from separate parsers.
-For parallel processing, give each worker its own Runtime and Parser. Workers
-can share a `wazero.CompilationCache` via
-`wazero.NewRuntimeConfig().WithCompilationCache(cache)` in
-`RuntimeOptions.RuntimeConfig` when constructing runtimes
-with `NewRuntimeWithOptions`; keep that cache open until all workers stop.
-A compilation cache saves compilation work, while reusing a runtime also saves
-module instantiation and linear-memory allocation. WASM memory keeps its high
-water mark, so retire a worker's runtime after unusually large jobs if needed.
+The constructor reads the grammar from the WASM module and returns a ready to
+use parser. Continue with `ParseContext` as in the quick start. For bytes
+loaded with `go:embed`, use
+`wasitter.NewParserFromWASM(ctx, wasmBytes)` instead.
 
-`ChildByFieldName` caches successful field IDs per guest language and uses the
-numeric accessor on bridges that support it. Existing traversal code benefits
-automatically; older bridges retain name-based lookup. Code with fixed fields
-can also resolve `Language.FieldIDForName` once and use `ChildByFieldID` (or
-`ChildByFieldIDPtr`). Field IDs belong to their language and must not be reused
-across different grammars.
+## Usage notes
 
-## Building WASM artifacts
+- Reuse a parser and runtime when processing multiple files, and close each
+  tree when finished. For parallel parsing, give each worker its own runtime
+  and parser.
+- Keep a tree open while reading its nodes. Close trees, queries, and parsers
+  before closing the runtime. The examples arrange their `defer` calls in
+  this order.
+- A successful parse does not mean the source has no syntax errors. Tree-sitter
+  can produce a tree for incomplete code; check `tree.RootNode().HasError()`
+  separately for syntax errors.
+- Node positions use UTF-8 byte offsets and byte columns, not character counts
+  or UTF-16 code-unit offsets.
 
-`mise` is the canonical entry point. Every build runs the compiler inside a
-pinned Docker image, refreshes the adjacent SHA-256 file, and leaves the WASM
-artifact in the repository. The task delegates orchestration to the
-CGO-free `cmd/wasitter-build` Go command, so registry parsing and Docker
-argument handling do not depend on a host shell:
+The [usage guide](USAGE.md) covers queries, incremental parsing, runtime
+configuration, and compatibility.
 
-```sh
-mise run wasm-build       # Docker build + WASM generation + checksum update
-mise run wasm-verify      # verify the checked-in artifact only
-mise run wasm-check       # rebuild, verify, and run fixture checks
-```
+## Contributing
 
-The command can also be invoked directly while developing the build workflow:
+For adding languages, rebuilding WASM, testing, and releasing, see
+[DEVELOPMENT.md](DEVELOPMENT.md).
+Report vulnerabilities as described in the [security policy](SECURITY.md).
 
-```sh
-go run ./cmd/wasitter-build build-grammar javascript
-```
+## License
 
-To build an official grammar selected by name, pass one argument:
-
-```sh
-mise run build:grammar javascript  # writes internal/wasm/assets/wasitter-javascript.wasm
-mise run test:grammar javascript   # verify the artifact, smoke-test it, and run native parity
-mise run check:grammar javascript  # build followed by the two checks above
-```
-
-`build:grammar` downloads the exact release and source-archive digest recorded
-in [`scripts/grammar-registry.json`](scripts/grammar-registry.json), then
-invokes the same ABI bridge used by the bundled JSON artifact. The output files
-are `internal/wasm/assets/wasitter-<language>.wasm` and its `.sha256` sidecar;
-commit both files when the grammar is intended to be part of the package.
-`go:embed` discovers every checked-in `wasitter-*.wasm` file, and
-`BuiltinWASM("<language>")` can retrieve it at runtime.
-
-The registry uses JSON rather than YAML so the CGO-free build command can use
-Go's standard library without adding a parser dependency; the versioned object
-and arrays remain easy to review and edit.
-
-The registry is a deliberately pinned allowlist rather than an unversioned
-"latest" downloader. It currently covers:
-
-| Language | Upstream release | External scanner |
-| --- | --- | --- |
-| bash | tree-sitter-bash v0.25.1 | C |
-| c | tree-sitter-c v0.24.2 | — |
-| cpp | tree-sitter-cpp v0.23.4 | C |
-| go | tree-sitter-go v0.25.0 | — |
-| java | tree-sitter-java v0.23.5 | — |
-| javascript | tree-sitter-javascript v0.25.0 | C |
-| json | tree-sitter-json v0.24.8 | — |
-| python | tree-sitter-python v0.25.0 | C |
-| ruby | tree-sitter-ruby v0.23.1 | C |
-| rust | tree-sitter-rust v0.24.2 | C |
-| tsx | tree-sitter-typescript v0.23.2 | C |
-| typescript | tree-sitter-typescript v0.23.2 | C |
-
-To add another official grammar, add a fully pinned object (repository, release
-tag, archive SHA-256, parser path, optional `scanners` path array, C language
-function, and exported language name) to the `grammars` array in
-[`scripts/grammar-registry.json`](scripts/grammar-registry.json), then run
-`mise run check:grammar <name>`. Repos that contain multiple grammars (such as
-TypeScript/TSX), C++ scanners, multiple scanner files, or non-standard
-generated-source layouts need explicit objects and source paths. The registry
-loader validates the schema, rejects duplicate names and unsafe paths, and
-only permits official Tree-sitter repositories.
-The build intentionally fails for names absent from the registry so a typo or
-an unreviewed network dependency cannot silently produce a release artifact.
-
-The host therefore needs Go, `mise`, and Docker; it does not need Zig, wasi-sdk,
-a C compiler, or CGO. The Go command builds a small static helper, mounts it
-with the checkout, and performs the source download, archive verification,
-extraction, and compilation inside the pinned container. The image is based on
-a pinned Alpine digest and downloads Zig 0.15.2 with a verified SHA-256
-checksum. Docker caches the builder image, so subsequent builds do not
-redownload the toolchain.
-
-The Go command is the only supported build implementation. It receives
-registry metadata as structured values and invokes the compiler directly inside
-Docker; no compiler or source-path environment variables are required. See
-[`internal/wasm/README.md`](internal/wasm/README.md) for the ABI and custom
-grammar registry notes (including multi-file external scanners),
-and
-[`internal/wasm/THIRD_PARTY_NOTICES.md`](internal/wasm/THIRD_PARTY_NOTICES.md)
-for third-party license information.
-
-The expected SHA-256 is kept beside each artifact (for example,
-`internal/wasm/assets/wasitter-json.wasm.sha256`). The Go command links
-through temporary sibling files and publishes only after a successful link, so
-a failed build cannot truncate an existing artifact.
-
-Private or otherwise unregistered grammars are intentionally outside the
-release workflow. Add an explicitly reviewed official grammar object to
-[`scripts/grammar-registry.json`](scripts/grammar-registry.json) before
-building it; this keeps source pins, scanner paths, and language entry points
-auditable. The generated artifact can then be loaded with `NewRuntimeFromFile`
-or `NewRuntime` and `Runtime.LoadLanguage`.
-
-### Updating Tree-sitter or a grammar
-
-Keep the runtime sources, generated grammar sources, registry object, and native
-comparison module on compatible Tree-sitter releases. For a registry grammar,
-run `mise run check:grammar <language>`; it downloads and builds in Docker,
-refreshes the sidecar digest, and exercises both the WASM smoke test and native
-parity. Then run `go test ./...`, `mise run native-test`, and
-`mise run native-bench` before committing the WASM file, checksum, version
-notes, and license changes. If a new runtime introduces a language ABI outside
-the supported range, update the ABI bridge and the Go constants in
-`language.go` together with the compatibility tests.
-
-## Compatibility
-
-The guest runtime is Tree-sitter C v0.25.0. The checked-in JSON grammar is
-v0.24.8 and the checked-in JavaScript grammar is v0.25.0; other registry
-grammars are generated on demand and become package assets only when committed.
-WASM execution is provided by [wazero](https://wazero.io/), with WASI preview-1
-enabled for the standard C runtime imports.
-
-The WASM module contains the same upstream C parser and query engine as those
-versions, but the Go/WASM boundary is an explicit ABI.  Consequently this
-project aims for semantic parity, rather than promising bit-for-bit or
-100%-identical behavior with every native Tree-sitter build:
-
-- A grammar must be generated against a compatible Tree-sitter language ABI
-  (13 through 15 for the bundled runtime). The embedded artifacts are the
-  checked-in files under `internal/wasm/assets`; use
-  `mise run build:grammar <language>` for a pinned official grammar.
-- Tree coordinates exposed by this package are UTF-8 byte offsets and byte
-  columns. `ParseUTF16LE`/`ParseUTF16BE` decode the supplied Go `[]uint16` into
-  UTF-8 before parsing, so offsets in the returned tree refer to that UTF-8
-  representation (they are not UTF-16 code-unit offsets).
-- Input callbacks are materialized into one UTF-8 buffer before entering the
-  guest. The progress callback is a deterministic pre/post hook; the compact
-  ABI does not currently provide a callback trampoline for observing every
-  parser step. Context cancellation is additionally bridged through
-  Tree-sitter's native cancellation flag when the module exports it (the
-  bundled module does); runtimes configured with
-  `WithCloseOnContextDone` can interrupt guest execution even earlier.
-- `SetLogger` retains a Go logger for API compatibility. The bundled ABI does
-  not yet expose a native Tree-sitter logger trampoline, so parser diagnostics
-  are not automatically forwarded to that callback. A custom bridge may add
-  its own logging export.
-- Native query matching is delegated to Tree-sitter. Built-in text predicates
-  (`#eq?`, `#match?`, and related forms) are evaluated by the Go host because
-  source bytes live outside the guest query engine; user-defined predicates
-  remain caller-defined. Modules that predate the native query ABI use a
-  deliberately small fallback matcher (simple node-type/capture patterns),
-  and therefore do not provide the full query language semantics.
-
-These restrictions keep the wire format portable and predictable. They should
-be treated as part of the module contract when comparing results with a native
-binding or when shipping a custom grammar module.
-
-## Security and trust boundaries
-
-The package executes a caller-selected WebAssembly module. `NewRuntime` does
-not verify that a module was produced by this repository; applications loading
-modules from outside the checked-in assets should authenticate and pin those
-bytes themselves. wazero provides the execution sandbox, and the default
-runtime only installs WASI preview-1 imports needed by the Tree-sitter C
-runtime. Supplying a custom `RuntimeConfig`, `ModuleConfig`, or import
-configuration can expand that boundary and should be reviewed accordingly.
-
-Malformed modules, grammars, and queries are expected to return Go errors, but
-resource limits remain an application concern. Set a context deadline or use
-`WithCloseOnContextDone` for untrusted or potentially expensive input, and
-bound input sizes before parsing. The package does not promise protection from
-denial-of-service caused by deliberately large inputs or pathological grammar
-queries.
-
-## Tests and benchmarks
-
-The test suite compares the bundled parser's corpus and representative query
-results with Tree-sitter's expected S-expressions, and also exercises
-incremental edits, UTF-8 boundaries, cursors, lifecycle errors, and concurrent
-use. Run it with:
-
-```sh
-go test ./...
-CGO_ENABLED=0 go test ./...
-go test -race ./...
-go vet ./...
-```
-
-Parser, query, and runtime benchmarks are included in the repository:
-
-```sh
-go test -run '^$' -bench . -benchmem ./...
-```
-
-`BenchmarkGeneratedGrammarParse` automatically creates one WASM parse
-sub-benchmark for every checked-in `wasitter-*.wasm` artifact. This keeps
-new registry grammars visible in performance runs without adding per-language
-benchmark code. Filter to one artifact when iterating on it:
-
-```sh
-go test -run '^$' -bench '^BenchmarkGeneratedGrammarParse/javascript$' -benchmem .
-```
-
-Runtime and parser setup is outside the timed region; each iteration parses the
-grammar's representative fixture and closes the result tree. Grammars without
-a fixture use an empty input as a baseline until a language-specific fixture
-is added. These are WASM-only throughput measurements; the `comparison/`
-module remains the place for apples-to-apples native timing and requires CGO.
-
-CI also runs a one-iteration benchmark smoke test and the native benchmark
-suite. These checks keep the benchmark entry points executable; reported
-numbers vary by host and are not a fixed performance promise.
-
-For an apples-to-apples native comparison, the optional `comparison/` module
-pins the upstream Go bindings for the registry grammars (and is intentionally
-separate because it requires CGO):
-
-```sh
-mise run native-test
-mise run native-bench
-```
-
-`mise run test:grammar <language>` first checks that the requested registry object,
-WASM file, and checksum all exist (this part is offline and does not require
-Docker). It then runs a small parse smoke test in the CGO-free module and
-compares S-expressions, node metadata, tree shape, and a wildcard query against
-the corresponding upstream native Go binding. This is a semantic parity check;
-upstream release archives and compiler toolchains are not expected to produce
-byte-for-byte identical WASM modules.
-
-## Contributing and license
-
-Development and release checks are documented in
-[`CONTRIBUTING.md`](CONTRIBUTING.md). Security reports should follow
-[`SECURITY.md`](SECURITY.md). The project is distributed under the MIT license;
-embedded runtime, grammar, and toolchain notices are listed in
-[`internal/wasm/THIRD_PARTY_NOTICES.md`](internal/wasm/THIRD_PARTY_NOTICES.md).
+wasitter is [MIT licensed](LICENSE). License information for the grammars,
+runtime, and toolchain is listed in the
+[third-party notices](internal/wasm/THIRD_PARTY_NOTICES.md).
+Include the Release's `THIRD_PARTY_NOTICES.txt` when distributing WASM files.
