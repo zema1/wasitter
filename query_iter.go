@@ -6,78 +6,8 @@ import (
 	"sync"
 )
 
-// This file contains the iterator-shaped query API used by the current
-// tree-sitter Go binding.  The original implementation in this package
-// exposed a zero-argument QueryCursor.Matches method returning a plain slice.
-// QueryMatches and QueryCaptures deliberately remain slice aliases so that
-// existing callers can still use len and range, while Next provides the
-// stateful spelling used by upstream tree-sitter.
-
-func queryUint32Value(value any) (uint32, bool) {
-	if value == nil {
-		return 0, false
-	}
-	switch typed := value.(type) {
-	case uint32:
-		return typed, true
-	case uint:
-		if uint64(typed) > uint64(^uint32(0)) {
-			return 0, false
-		}
-		return uint32(typed), true
-	case uint64:
-		if typed > uint64(^uint32(0)) {
-			return 0, false
-		}
-		return uint32(typed), true
-	case uint16:
-		return uint32(typed), true
-	case uint8:
-		return uint32(typed), true
-	case int:
-		if typed < 0 || uint64(typed) > uint64(^uint32(0)) {
-			return 0, false
-		}
-		return uint32(typed), true
-	case int64:
-		if typed < 0 || uint64(typed) > uint64(^uint32(0)) {
-			return 0, false
-		}
-		return uint32(typed), true
-	case int32:
-		if typed < 0 {
-			return 0, false
-		}
-		return uint32(typed), true
-	case int16:
-		if typed < 0 {
-			return 0, false
-		}
-		return uint32(typed), true
-	case int8:
-		if typed < 0 {
-			return 0, false
-		}
-		return uint32(typed), true
-	case *uint:
-		if typed == nil {
-			return 0, false
-		}
-		return queryUint32Value(*typed)
-	case *uint32:
-		if typed == nil {
-			return 0, false
-		}
-		return *typed, true
-	case *uint64:
-		if typed == nil {
-			return 0, false
-		}
-		return queryUint32Value(*typed)
-	default:
-		return 0, false
-	}
-}
+// QueryMatches and QueryCaptures are materialized results supporting both
+// Go slice operations and cursor-style iteration with range changes.
 
 // queryIteratorKind identifies which native cursor operation a materialized
 // compatibility iterator mirrors.  QueryMatches and QueryCaptures are kept as
@@ -446,21 +376,11 @@ func (captures *QueryCaptures) Next() (*QueryMatch, uint) {
 // intersecting [start, end).  The cursor range is also updated when the
 // sequence originated from a cursor.  Reversed ranges are ignored, matching
 // Tree-sitter's no-op behaviour for this setter.
-func (matches *QueryMatches) SetByteRange(start, end any) {
+func (matches *QueryMatches) SetByteRange(start, end uint32) {
 	if matches == nil {
 		return
 	}
-	start32, okStart := queryUint32Value(start)
-	end32, okEnd := queryUint32Value(end)
-	if !okStart || !okEnd {
-		return
-	}
-	// Both endpoints cross a uint32 WASM ABI.  A start beyond that width must
-	// be rejected before conversion; otherwise a large 64-bit value could wrap
-	// to a small offset after the end is clamped below.
-	if uint64(start32) > uint64(^uint32(0)) {
-		return
-	}
+	start32, end32 := start, end
 	// Tree-sitter reserves an end byte of zero for an unbounded range.  Apply
 	// that sentinel normalization before checking ordering; otherwise a valid
 	// range such as (12, 0) is mistaken for a reversed range when this setter
@@ -593,15 +513,11 @@ func (matches *QueryMatches) SetPointRange(start, end Point) {
 }
 
 // SetByteRange applies a byte range to a materialized capture sequence.
-func (captures *QueryCaptures) SetByteRange(start, end any) {
+func (captures *QueryCaptures) SetByteRange(start, end uint32) {
 	if captures == nil {
 		return
 	}
-	start32, okStart := queryUint32Value(start)
-	end32, okEnd := queryUint32Value(end)
-	if !okStart || !okEnd {
-		return
-	}
+	start32, end32 := start, end
 	if uint64(start32) > uint64(^uint32(0)) {
 		return
 	}
@@ -722,259 +638,49 @@ func (captures *QueryCaptures) SetPointRange(start, end Point) {
 	*captures = filtered
 }
 
-// Matches executes a query and returns its matches.  With no arguments it
-// snapshots the current cursor execution, preserving the historical API.  To
-// mirror upstream tree-sitter, the preferred form is
-//
-//	cursor.Matches(query, node, source)
-//
-// where node may be either Node or *Node.  Invalid argument lists return a nil
-// sequence because the historical method had no error result; callers that
-// need diagnostics should use Exec followed by NextMatch.
-func (c *QueryCursor) Matches(args ...any) QueryMatches {
-	if c == nil || c.closed.Load() {
-		return nil
-	}
-	if len(args) == 0 {
-		// The compatibility cursor keeps matches in c.matches.  Native cursors
-		// stream matches directly from the guest, so drain that stream when the
-		// caller asks for a slice snapshot.
-		snapshot := QueryMatches(c.matchesSnapshot())
-		if len(snapshot) != 0 {
-			return snapshot
-		}
-		c.mu.Lock()
-		native := c.query != nil && c.query.native && c.handle != 0
-		c.mu.Unlock()
-		if !native {
-			return snapshot
-		}
-		return c.collectMatches(nil, QueryCursorOptions{})
-	}
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil
-	}
-	if err := c.Exec(query, node); err != nil {
-		return nil
-	}
-	return c.collectMatches(text, options)
+// Matches executes query at node and collects its matches. Text supplies the
+// UTF-8 source for text predicates; nil uses the tree's retained source.
+// Returned nodes remain valid while their tree and runtime are open.
+func (c *QueryCursor) Matches(query *Query, node Node, text []byte) (QueryMatches, error) {
+	return c.MatchesWithOptions(query, node, text, QueryCursorOptions{})
 }
 
-// MatchesWithOptions is the options-aware upstream spelling.  It accepts the
-// same Node/value argument variants as Matches: (query, node, text, options).
-func (c *QueryCursor) MatchesWithOptions(args ...any) QueryMatches {
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil
-	}
-	if err := c.Exec(query, node); err != nil {
-		return nil
-	}
-	return c.collectMatches(text, options)
-}
-
-// MatchesE is the error-returning counterpart of Matches. It is useful when
-// callers need to distinguish an invalid/closed cursor from an empty result;
-// the argument forms are identical to Matches.
-func (c *QueryCursor) MatchesE(args ...any) (QueryMatches, error) {
-	if c == nil || c.closed.Load() {
-		return nil, ErrClosed
-	}
-	if len(args) == 0 {
-		return c.Matches(), nil
-	}
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil, ErrUnsupported
-	}
+// MatchesWithOptions is [QueryCursor.Matches] with progress options.
+// A callback returning true stops collection and cancels this cursor execution.
+func (c *QueryCursor) MatchesWithOptions(query *Query, node Node, text []byte, options QueryCursorOptions) (QueryMatches, error) {
 	if err := c.Exec(query, node); err != nil {
 		return nil, err
 	}
 	return c.collectMatches(text, options), nil
 }
 
-// MatchesWithOptionsE is the error-returning counterpart of
-// MatchesWithOptions.
-func (c *QueryCursor) MatchesWithOptionsE(args ...any) (QueryMatches, error) {
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil, ErrUnsupported
-	}
-	if err := c.Exec(query, node); err != nil {
-		return nil, err
-	}
-	return c.collectMatches(text, options), nil
+// Captures executes query at node and collects captures in Tree-sitter order.
+// Text supplies the UTF-8 source for predicates; nil uses the tree's source.
+// Returned nodes remain valid while their tree and runtime are open.
+func (c *QueryCursor) Captures(query *Query, node Node, text []byte) (QueryCaptures, error) {
+	return c.CapturesWithOptions(query, node, text, QueryCursorOptions{})
 }
 
-// Captures executes a query and returns its captures in source/Tree-sitter
-// order.  It accepts (query, node, text), with node being either Node or
-// *Node.  With no arguments it snapshots the current cursor stream.
-func (c *QueryCursor) Captures(args ...any) QueryCaptures {
-	if c == nil || c.closed.Load() {
-		return nil
-	}
-	if len(args) == 0 {
-		return c.collectCaptures(nil, QueryCursorOptions{})
-	}
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil
-	}
-	if err := c.Exec(query, node); err != nil {
-		return nil
-	}
-	return c.collectCaptures(text, options)
-}
-
-// CapturesWithOptions is the options-aware variant of Captures.
-func (c *QueryCursor) CapturesWithOptions(args ...any) QueryCaptures {
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil
-	}
-	if err := c.Exec(query, node); err != nil {
-		return nil
-	}
-	return c.collectCaptures(text, options)
-}
-
-// CapturesE is the error-returning counterpart of Captures.
-func (c *QueryCursor) CapturesE(args ...any) (QueryCaptures, error) {
-	if c == nil || c.closed.Load() {
-		return nil, ErrClosed
-	}
-	if len(args) == 0 {
-		return c.Captures(), nil
-	}
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil, ErrUnsupported
-	}
+// CapturesWithOptions is [QueryCursor.Captures] with progress options.
+func (c *QueryCursor) CapturesWithOptions(query *Query, node Node, text []byte, options QueryCursorOptions) (QueryCaptures, error) {
 	if err := c.Exec(query, node); err != nil {
 		return nil, err
 	}
 	return c.collectCaptures(text, options), nil
 }
 
-// CapturesWithOptionsE is the error-returning counterpart of
-// CapturesWithOptions.
-func (c *QueryCursor) CapturesWithOptionsE(args ...any) (QueryCaptures, error) {
-	query, node, text, options, ok := parseQueryIteratorArgs(args)
-	if !ok {
-		return nil, ErrUnsupported
-	}
-	if err := c.Exec(query, node); err != nil {
-		return nil, err
-	}
-	return c.collectCaptures(text, options), nil
-}
-
-// ExecWithOptions executes a query while retaining options for a subsequent
-// NextMatch/NextCapture loop.  Progress callbacks are invoked by the explicit
-// iterator methods only; this method exists as an ergonomic counterpart for
-// callers that prefer the error-returning Exec API.
-func (c *QueryCursor) ExecWithOptions(args ...any) error {
-	if len(args) < 2 {
-		return ErrUnsupported
-	}
-	query, node, options, ok := parseQueryExecOptionsArgs(args)
-	if !ok {
-		return ErrUnsupported
-	}
+// ExecWithOptions executes a query and retains progress options for subsequent
+// [QueryCursor.NextMatch] or [QueryCursor.NextCapture] calls.
+func (c *QueryCursor) ExecWithOptions(query *Query, node Node, options QueryCursorOptions) error {
 	if err := c.Exec(query, node); err != nil {
 		return err
 	}
 	c.mu.Lock()
-	// Keep the callback for callers that subsequently use Matches/Captures
-	// without passing options again.  This field is intentionally optional;
-	// old cursors and direct Next* calls remain unaffected.
 	c.progressCallback = options.ProgressCallback
 	c.progressPersistent = options.ProgressCallback != nil
 	c.progressCanceled = false
 	c.mu.Unlock()
 	return nil
-}
-
-func parseQueryExecOptionsArgs(args []any) (query *Query, node Node, options QueryCursorOptions, ok bool) {
-	if len(args) < 2 || len(args) > 4 {
-		return nil, Node{}, QueryCursorOptions{}, false
-	}
-	if len(args) == 2 {
-		query, node, _, _, ok = parseQueryIteratorArgs(args)
-		return query, node, QueryCursorOptions{}, ok
-	}
-	// The idiomatic form is (query, node, options).  Also accept
-	// (query, node, text, options) for callers sharing one argument builder with
-	// MatchesWithOptions.
-	if len(args) == 3 {
-		query, node, _, _, ok = parseQueryIteratorArgs([]any{args[0], args[1]})
-		if !ok {
-			return nil, Node{}, QueryCursorOptions{}, false
-		}
-		if args[2] == nil {
-			return query, node, QueryCursorOptions{}, true
-		}
-		switch value := args[2].(type) {
-		case QueryCursorOptions:
-			options = value
-		case *QueryCursorOptions:
-			if value == nil {
-				return nil, Node{}, QueryCursorOptions{}, false
-			}
-			options = *value
-		default:
-			return nil, Node{}, QueryCursorOptions{}, false
-		}
-		return query, node, options, true
-	}
-	query, node, _, options, ok = parseQueryIteratorArgs(args)
-	return query, node, options, ok
-}
-
-func parseQueryIteratorArgs(args []any) (query *Query, node Node, text []byte, options QueryCursorOptions, ok bool) {
-	if len(args) < 2 || len(args) > 4 {
-		return nil, Node{}, nil, QueryCursorOptions{}, false
-	}
-	query, ok = args[0].(*Query)
-	if !ok || query == nil {
-		return nil, Node{}, nil, QueryCursorOptions{}, false
-	}
-	switch value := args[1].(type) {
-	case Node:
-		node = value
-	case *Node:
-		if value == nil {
-			return nil, Node{}, nil, QueryCursorOptions{}, false
-		}
-		node = *value
-	default:
-		return nil, Node{}, nil, QueryCursorOptions{}, false
-	}
-	if len(args) >= 3 && args[2] != nil {
-		switch value := args[2].(type) {
-		case []byte:
-			text = value
-		case string:
-			text = []byte(value)
-		default:
-			return nil, Node{}, nil, QueryCursorOptions{}, false
-		}
-	}
-	if len(args) >= 4 && args[3] != nil {
-		switch value := args[3].(type) {
-		case QueryCursorOptions:
-			options = value
-		case *QueryCursorOptions:
-			if value == nil {
-				return nil, Node{}, nil, QueryCursorOptions{}, false
-			}
-			options = *value
-		default:
-			return nil, Node{}, nil, QueryCursorOptions{}, false
-		}
-	}
-	return query, node, text, options, true
 }
 
 func (c *QueryCursor) collectMatches(text []byte, options QueryCursorOptions) QueryMatches {

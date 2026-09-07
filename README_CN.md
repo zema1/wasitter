@@ -5,13 +5,13 @@
 [下载](https://github.com/zema1/wasitter/releases)
 
 wasitter 是一个 Go 的  [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) 实现，
-它并非不是从零开始的 Port，而是将 Tree-sitter 的 C 运行时和各语言的语法解析器编译成 WebAssembly，
+它不是从零开始的 Port，而是将 Tree-sitter 的 C 运行时和各语言的语法解析器编译成 WebAssembly，
 并在 Go 程序内通过 [wazero](https://wazero.io/) 来加载 wasm 并运行。
 
 ## 特点
 
 - 使用时不需要 CGO、C 编译器或系统动态库，可以直接用 Go 原生工具链构建和交叉编译
-- 跟随上游定期更新，析正确性和可靠性与原版保持一致，不会因重写导致逻辑错误和维护负担
+- 跟随上游定期更新，解析正确性和可靠性与原版保持一致，不会因重写导致逻辑错误和维护负担
 - 将不同语言的支持外置为独立的 WASM 文件可按需加载，而不是默认携带所有语言
 - 针对原版接口做轻量封装，使用体感更符合 Go 语言习惯
 - 通过[对照测试](comparison/README.md) 确保关键行为和原版保持一致
@@ -80,7 +80,7 @@ func run() error {
 其他语言的 WASM 文件可以从 [Releases](https://github.com/zema1/wasitter/releases) 下载，
 版本应与项目中使用的 wasitter 版本一致，否则会有未定义行为。
 
-目前支持的语言包括 `Bash`、`C`、`C++`、`Go`、`Java`、`Python`、`Ruby`、`Rust`、`TypeScript`、`TSX` 等 12 中语言
+目前支持的语言包括 `Bash`、`C`、`C++`、`Go`、`Java`、`Python`、`Ruby`、`Rust`、`TypeScript`、`TSX` 等 12 种语言
 
 以 Python 为例：把 **`wasitter-python.wasm`** 下载到合适位置，如 `grammars/wasitter-python.wasm`
 然后就可以这样加载使用:

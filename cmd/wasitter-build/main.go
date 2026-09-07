@@ -71,6 +71,10 @@ func run(ctx context.Context, args []string) error {
 		return &usageError{message: usage()}
 	}
 	switch args[0] {
+	case "build-grammars":
+		return runBuildGrammars(ctx, args[1:])
+	case "prepare-grammar-assets":
+		return runPrepareGrammarAssets(args[1:])
 	case "build-grammar":
 		return runBuildGrammar(ctx, args[1:])
 	case "test-grammar", "verify-grammar":
@@ -96,6 +100,8 @@ func run(ctx context.Context, args []string) error {
 func usage() string {
 	return `usage:
   wasitter-build build-grammar [options] <language>
+  wasitter-build build-grammars [-root path] [-output-dir path]
+  wasitter-build prepare-grammar-assets [-root path] [-artifact-dir path] [-output-dir path]
   wasitter-build test-grammar [options] <language>
   wasitter-build check-grammar [options] <language>
   wasitter-build verify-wasm [options]
@@ -153,16 +159,17 @@ func runVerifyWASM(args []string) error {
 }
 
 type grammarFlags struct {
-	root         string
-	registry     string
-	image        string
-	platform     string
-	dockerfile   string
-	ccompiler    string
-	cxxcompiler  string
-	output       string
-	sourceURL    string
-	noImageBuild bool
+	root            string
+	registry        string
+	image           string
+	platform        string
+	dockerfile      string
+	ccompiler       string
+	cxxcompiler     string
+	output          string
+	sourceURL       string
+	noImageBuild    bool
+	includeLicenses bool
 }
 
 func parseGrammarFlags(name string, args []string, allowDocker bool) (grammarFlags, string, error) {
@@ -177,6 +184,7 @@ func parseGrammarFlags(name string, args []string, allowDocker bool) (grammarFla
 	fs.StringVar(&options.ccompiler, "cc", "", "C compiler executable (in-container mode)")
 	fs.StringVar(&options.cxxcompiler, "cxx", "", "C++ compiler executable (in-container mode)")
 	fs.StringVar(&options.output, "output-dir", "", "artifact output directory")
+	fs.BoolVar(&options.includeLicenses, "include-licenses", false, "copy upstream licenses alongside artifacts")
 	fs.StringVar(&options.sourceURL, "source-url", "", "archive URL override (testing/mirror)")
 	if allowDocker {
 		fs.BoolVar(&options.noImageBuild, "skip-image-build", false, "do not run docker build")
@@ -239,7 +247,7 @@ func reorderGrammarArgs(args []string, allowDocker bool) (flags, positional []st
 		"-output-dir": true, "--output-dir": true,
 		"-source-url": true, "--source-url": true,
 	}
-	boolFlags := map[string]bool{}
+	boolFlags := map[string]bool{"-include-licenses": true, "--include-licenses": true}
 	if allowDocker {
 		boolFlags["-skip-image-build"], boolFlags["--skip-image-build"] = true, true
 	}
@@ -426,6 +434,9 @@ func runDockerGrammar(ctx context.Context, options grammarFlags, grammar grammar
 	if options.sourceURL != "" {
 		args = append(args, "-source-url", options.sourceURL)
 	}
+	if options.includeLicenses {
+		args = append(args, "-include-licenses")
+	}
 	args = append(args, grammar.Name)
 	if err := runCommand(ctx, "docker", args, os.Stdout, os.Stderr); err != nil {
 		return fmt.Errorf("docker run: %w", err)
@@ -447,6 +458,7 @@ func runInContainerBuildGrammar(ctx context.Context, args []string) error {
 		CCompiler:       options.ccompiler,
 		CXXCompiler:     options.cxxcompiler,
 		OutputDirectory: options.output,
+		IncludeLicenses: options.includeLicenses,
 		Download: grammarbuild.DownloadOptions{
 			URL: options.sourceURL,
 		},

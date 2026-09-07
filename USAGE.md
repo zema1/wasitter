@@ -108,7 +108,7 @@ defer query.Close()
 
 cursor := wasitter.NewQueryCursor()
 defer cursor.Close()
-matches, err := cursor.MatchesE(query, tree.RootNode(), source)
+matches, err := cursor.Matches(query, tree.RootNode(), source)
 if err != nil {
 	return err
 }
@@ -147,9 +147,9 @@ for i := 0; i < root.NamedChildCount(); i++ {
 
 A successful parse can produce a tree containing syntax errors. Check
 `root.HasError()` when valid input is required. Nodes borrow their tree, so
-keep it open while reading nodes. Prefer typed context methods such as
-`ParseContext`, `ParseWithOptionsContext`, and `ParseInputWithOptionsCtx` in
-new code.
+keep it open while reading nodes. Use `ParseContext` for byte slices,
+`ParseInputContext` for callbacks, and their `WithOptionsContext` variants
+when progress options are needed.
 
 ## Lifecycle and performance
 
@@ -192,9 +192,9 @@ water mark, so retire a worker's runtime after unusually large jobs if needed.
 `ChildByFieldName` caches successful field IDs per guest language and uses the
 numeric accessor on bridges that support it. Existing traversal code benefits
 automatically; older bridges retain name-based lookup. Code with fixed fields
-can also resolve `Language.FieldIDForName` once and use `ChildByFieldID` (or
-`ChildByFieldIDPtr`). Field IDs belong to their language and must not be reused
-across different grammars.
+can also resolve `Language.FieldIDForName` once and use `ChildByFieldID`.
+Field IDs belong to their language and must not be reused across different
+grammars.
 
 ## Compatibility
 
@@ -213,7 +213,7 @@ project aims for semantic parity, rather than promising bit-for-bit or
   (13 through 15 for the bundled runtime). Use grammar files from the wasitter
   release matching your Go module version.
 - Tree coordinates exposed by this package are UTF-8 byte offsets and byte
-  columns. `ParseUTF16LE`/`ParseUTF16BE` decode the supplied Go `[]uint16` into
+  columns. `ParseUTF16` decodes the supplied Go `[]uint16` into
   UTF-8 before parsing, so offsets in the returned tree refer to that UTF-8
   representation (they are not UTF-16 code-unit offsets).
 - Input callbacks are materialized into one UTF-8 buffer before entering the

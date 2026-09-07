@@ -10,21 +10,11 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-// LANGUAGE_VERSION is the newest Tree-sitter language ABI understood by the
-// bundled runtime.  It mirrors TREE_SITTER_LANGUAGE_VERSION from the C API
-// and is intentionally an untyped constant so it can be compared with either
-// uint32 ABI values or integer literals.
-const LANGUAGE_VERSION = 15
+// LanguageVersion is the newest Tree-sitter language ABI supported by the bundled runtime.
+const LanguageVersion = 15
 
-// MIN_COMPATIBLE_LANGUAGE_VERSION is the oldest Tree-sitter language ABI that
-// can be loaded by the bundled runtime.
-const MIN_COMPATIBLE_LANGUAGE_VERSION = 13
-
-// Go-style aliases for callers that prefer mixed-case identifiers.
-const (
-	LanguageVersion              = LANGUAGE_VERSION
-	MinCompatibleLanguageVersion = MIN_COMPATIBLE_LANGUAGE_VERSION
-)
+// MinCompatibleLanguageVersion is the oldest supported Tree-sitter language ABI.
+const MinCompatibleLanguageVersion = 13
 
 // SymbolType mirrors Tree-sitter's grammar symbol classification.
 type SymbolType uint8
@@ -88,8 +78,12 @@ func NewLanguage(rt *Runtime, export ...string) (*Language, error) {
 	return rt.LoadLanguage(name)
 }
 
-// LoadLanguage resolves an exported TSLanguage. The name may be an exact WASM
-// export (for example tree_sitter_json) or a grammar name (json).
+// LoadLanguage resolves an exported grammar from this runtime's module.
+// Name is a grammar name such as "python" or an exact export name such as
+// "tree_sitter_python"; it must match an export in the module. An empty name
+// selects the module's default grammar. Missing exports return [ErrUnsupported].
+// The returned language belongs to this runtime. Closing it invalidates only
+// that Go wrapper; parsers and queries retain their own references.
 func (r *Runtime) LoadLanguage(name string) (*Language, error) {
 	if err := r.ensureOpen(); err != nil {
 		return nil, err
@@ -281,9 +275,6 @@ func (l *Language) ExportName() string {
 // Valid reports whether this language handle is still usable.
 func (l *Language) Valid() bool { return l != nil && l.handle != 0 && l.ensureOpen() == nil }
 
-// IsValid is an alias for Valid.
-func (l *Language) IsValid() bool { return l.Valid() }
-
 // Equal compares two language handles. Language values obtained from a tree,
 // parser, and runtime may be distinct Go wrappers while referring to the same
 // guest grammar, so comparison is based on runtime identity and handle.
@@ -293,9 +284,6 @@ func (l *Language) Equal(other *Language) bool {
 	}
 	return l.runtime == other.runtime && l.handle == other.handle && l.Valid() && other.Valid()
 }
-
-// Equals is an alias for Equal.
-func (l *Language) Equals(other *Language) bool { return l.Equal(other) }
 
 // String implements fmt.Stringer and returns the grammar name when available.
 func (l *Language) String() string { return l.Name() }
@@ -341,9 +329,6 @@ func (l *Language) ABIVersion() uint32 {
 	v, _ := l.ABIVersionE()
 	return v
 }
-
-// AbiVersion is an upstream-compatible spelling.
-func (l *Language) AbiVersion() uint32 { return l.ABIVersion() }
 
 // ABIVersionE is the error-returning form of ABIVersion.
 func (l *Language) ABIVersionE() (uint32, error) {
@@ -643,9 +628,6 @@ func (l *Language) FieldNameForID(id uint16) string {
 	return s
 }
 
-// FieldNameForId is the upstream spelling of FieldNameForID.
-func (l *Language) FieldNameForId(id uint16) string { return l.FieldNameForID(id) }
-
 // FieldNameForIDE returns a field's display name and any ABI or lifecycle
 // error.
 func (l *Language) FieldNameForIDE(id uint16) (string, error) {
@@ -664,9 +646,6 @@ func (l *Language) FieldNameForIDE(id uint16) (string, error) {
 	}, uint64(l.handle), uint64(id))
 }
 
-// FieldName is a concise alias used by older Go bindings.
-func (l *Language) FieldName(id uint16) string { return l.FieldNameForID(id) }
-
 // FieldNameE is the error-returning form of FieldName.
 func (l *Language) FieldNameE(id uint16) (string, error) { return l.FieldNameForIDE(id) }
 
@@ -676,28 +655,20 @@ func (l *Language) SymbolForName(name string) uint16 {
 	return uint16(v)
 }
 
-// NodeKindForId returns the node-kind name for a numerical id.
-func (l *Language) NodeKindForId(id uint16) string { return l.SymbolName(id) }
+// NodeKindForID returns the node-kind name for a numerical id.
+func (l *Language) NodeKindForID(id uint16) string { return l.SymbolName(id) }
 
-// NodeKindForID is an initialism-friendly alias for NodeKindForId.
-func (l *Language) NodeKindForID(id uint16) string { return l.NodeKindForId(id) }
-
-// IdForNodeKind resolves a node-kind name. The named selector is forwarded to
+// IDForNodeKind resolves a node-kind name. The named selector is forwarded to
 // the optional four-argument ABI when available; older bridges retain the
 // historical named=true behavior.
-func (l *Language) IdForNodeKind(kind string, named bool) uint16 {
+func (l *Language) IDForNodeKind(kind string, named bool) uint16 {
 	v, _ := l.SymbolForNameNamedE(kind, named)
 	return v
 }
 
-// IDForNodeKind is an initialism-friendly alias for IdForNodeKind.
-func (l *Language) IDForNodeKind(kind string, named bool) uint16 {
-	return l.IdForNodeKind(kind, named)
-}
-
-// FieldIdForName resolves a field name to its numerical id. A native export is
+// FieldIDForName resolves a field name to its numerical id. A native export is
 // used when present; otherwise the small field table is searched locally.
-func (l *Language) FieldIdForName(name string) uint16 {
+func (l *Language) FieldIDForName(name string) uint16 {
 	if v, err := l.fieldIDForName(name); err == nil {
 		return v
 	}
@@ -712,9 +683,6 @@ func (l *Language) FieldIdForName(name string) uint16 {
 	}
 	return 0
 }
-
-// FieldIDForName is an initialism-friendly alias for FieldIdForName.
-func (l *Language) FieldIDForName(name string) uint16 { return l.FieldIdForName(name) }
 
 func (l *Language) fieldIDForName(name string) (uint16, error) {
 	if err := l.ensureOpen(); err != nil {

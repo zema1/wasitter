@@ -392,7 +392,7 @@ func TestFallbackQueryMatchIDsAreStableAndZeroBased(t *testing.T) {
 	}
 	defer q.Close()
 	all := q.Matches(tree.RootNode())
-	if len(all) != 2 || all[0].Id() != 0 || all[1].Id() != 1 {
+	if len(all) != 2 || all[0].ID != 0 || all[1].ID != 1 {
 		t.Fatalf("fallback detached ids = %#v, want 0,1", all)
 	}
 
@@ -403,8 +403,8 @@ func TestFallbackQueryMatchIDsAreStableAndZeroBased(t *testing.T) {
 	}
 	cursor.SetByteRange(4, 5)
 	first, ok := cursor.NextMatch()
-	if !ok || first.Id() != 1 {
-		t.Fatalf("fallback cursor filtered id = %d, ok=%v; want 1", first.Id(), ok)
+	if !ok || first.ID != 1 {
+		t.Fatalf("fallback cursor filtered id = %d, ok=%v; want 1", first.ID, ok)
 	}
 	if _, ok := cursor.NextMatch(); ok {
 		t.Fatal("fallback cursor range returned an extra match")
@@ -579,7 +579,10 @@ func TestFallbackMaxStartDepthUsesPatternAnchor(t *testing.T) {
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
 	}
-	matches := c.Matches()
+	matches, err := c.Matches(q, tree.RootNode(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(matches) != 0 {
 		t.Fatalf("fallback depth matches = %#v, want no depth-2 number roots", matches)
 	}

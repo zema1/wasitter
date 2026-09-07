@@ -181,9 +181,6 @@ func (c *TreeCursor) normalizeFallbackShadowLocked() {
 // self-reset case without attempting to lock the same mutex twice.
 var cursorPairMu sync.Mutex
 
-// Cursor is a concise alias for TreeCursor.
-type Cursor = TreeCursor
-
 // saturatingU32Add adds two wire-sized indexes without wrapping.  A cursor
 // index is represented as uint32 by the ABI; if a compatibility tree would
 // place the result beyond that domain, retaining the maximum value is safer
@@ -296,9 +293,6 @@ func (c *TreeCursor) CurrentNode() Node {
 	return c.node
 }
 
-// Node is an alias for CurrentNode.
-func (c *TreeCursor) Node() Node { return c.CurrentNode() }
-
 // CurrentFieldName returns the current node's field name, if available.
 func (c *TreeCursor) CurrentFieldName() string {
 	if c == nil || c.closed.Load() {
@@ -380,9 +374,6 @@ func (c *TreeCursor) CurrentFieldName() string {
 	return ""
 }
 
-// FieldName is an alias for CurrentFieldName.
-func (c *TreeCursor) FieldName() string { return c.CurrentFieldName() }
-
 // CurrentFieldID returns the numerical field id of the current node.
 func (c *TreeCursor) CurrentFieldID() uint16 {
 	if c == nil || c.closed.Load() {
@@ -429,24 +420,13 @@ func (c *TreeCursor) CurrentFieldID() uint16 {
 				return 0
 			}
 			if language := c.node.Language(); language != nil {
-				return language.FieldIdForName(name)
+				return language.FieldIDForName(name)
 			}
 			return 0
 		}
 	}
 	return 0
 }
-
-// FieldID is an alias for CurrentFieldID.
-func (c *TreeCursor) FieldID() uint16 { return c.CurrentFieldID() }
-
-// FieldId is the spelling used by go-tree-sitter.
-func (c *TreeCursor) FieldId() uint16 { return c.CurrentFieldID() }
-
-// CurrentFieldId is the mixed-case spelling used by a few older bindings.
-// Keep it alongside CurrentFieldID so callers can migrate without an
-// adapter; both methods report the same Tree-sitter field identifier.
-func (c *TreeCursor) CurrentFieldId() uint16 { return c.CurrentFieldID() }
 
 // nativeCallLocked performs a cursor ABI call while retaining the owning
 // tree's read lock. Tree.Close takes the corresponding write lock before
@@ -652,9 +632,6 @@ func (c *TreeCursor) CurrentDepth() int {
 	}
 	return len(c.stack)
 }
-
-// Depth is an alias for CurrentDepth.
-func (c *TreeCursor) Depth() uint32 { return uint32(c.CurrentDepth()) }
 
 // DescendantIndex returns the current node's pre-order index relative to the
 // cursor root.
@@ -1146,16 +1123,13 @@ func (c *TreeCursor) GoToPrevSibling() bool {
 	return true
 }
 
-// GotoPrevSibling is a concise alias used by a few older bindings.
-func (c *TreeCursor) GotoPrevSibling() bool { return c.GoToPrevSibling() }
-
 // GoToNextNamedSibling moves to the next named sibling.
 func (c *TreeCursor) GoToNextNamedSibling() bool {
 	if c == nil || c.closed.Load() {
 		return false
 	}
 	for c.GoToNextSibling() {
-		if c.Node().IsNamed() {
+		if c.CurrentNode().IsNamed() {
 			return true
 		}
 	}
@@ -1168,21 +1142,12 @@ func (c *TreeCursor) GoToPreviousNamedSibling() bool {
 		return false
 	}
 	for c.GoToPrevSibling() {
-		if c.Node().IsNamed() {
+		if c.CurrentNode().IsNamed() {
 			return true
 		}
 	}
 	return false
 }
-
-// GoToPrevNamedSibling is a concise alias.
-func (c *TreeCursor) GoToPrevNamedSibling() bool { return c.GoToPreviousNamedSibling() }
-
-// GotoNextNamedSibling is an upstream-style alias.
-func (c *TreeCursor) GotoNextNamedSibling() bool { return c.GoToNextNamedSibling() }
-
-// GotoPreviousNamedSibling is an upstream-style alias.
-func (c *TreeCursor) GotoPreviousNamedSibling() bool { return c.GoToPreviousNamedSibling() }
 
 // GoToParent moves to the parent, stopping at the cursor root.
 func (c *TreeCursor) GoToParent() bool {
@@ -1445,17 +1410,9 @@ func deleteCursorHandle(rt *Runtime, handle uint32) error {
 }
 
 // Reset repositions the cursor at node and makes it the new root.
-//
-// The value-oriented API normally passes a Node value, while the established
-// go-tree-sitter bindings use *Node.  Accepting either representation here is
-// useful at this boundary because Reset is a mutating, no-error compatibility
-// method (invalid or nil nodes are simply ignored, matching the zero-value
-// behavior of the rest of this cursor implementation).  The strongly typed
-// ResetNode helper below is available to callers that prefer compile-time
-// checking.
-func (c *TreeCursor) Reset(value any) {
-	node, ok := nodeValueArg(value)
-	if !ok || c == nil || c.closed.Load() || node.handle == 0 || node.tree == nil || node.tree.rt == nil {
+// A null or closed node leaves the cursor unchanged.
+func (c *TreeCursor) Reset(node Node) {
+	if c == nil || c.closed.Load() || node.handle == 0 || node.tree == nil || node.tree.rt == nil {
 		return
 	}
 	c.mu.Lock()
@@ -1518,11 +1475,6 @@ func (c *TreeCursor) Reset(value any) {
 		_ = deleteCursorHandle(staleRT, staleHandle)
 	}
 }
-
-// ResetNode is the explicitly value-shaped spelling of Reset.  It is handy
-// for code that wants to avoid the small interface dispatch incurred by the
-// pointer/value compatibility form.
-func (c *TreeCursor) ResetNode(node Node) { c.Reset(node) }
 
 // ResetTo copies the current position and root information from another
 // cursor.  Both cursors are snapshotted while holding their locks, then the

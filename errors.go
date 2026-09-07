@@ -65,7 +65,7 @@ func (e *LanguageError) Error() string {
 	if e.Version == 0 {
 		return "wasitter: language has an incompatible ABI version"
 	}
-	return fmt.Sprintf("wasitter: language ABI version %d is incompatible (supported %d..%d)", e.Version, MIN_COMPATIBLE_LANGUAGE_VERSION, LANGUAGE_VERSION)
+	return fmt.Sprintf("wasitter: language ABI version %d is incompatible (supported %d..%d)", e.Version, MinCompatibleLanguageVersion, LanguageVersion)
 }
 
 // IncludedRangesError reports the first range that violates Tree-sitter's

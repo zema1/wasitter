@@ -7,39 +7,33 @@ import (
 	"io"
 )
 
-// ParseInputCtx parses callback-provided input with an explicit context.  It
-// follows the argument order used by the established Go bindings
-// (oldTree, input), while preserving wasitter's error-aware return value.
-// The stable WASM bridge currently accepts UTF-8 callbacks; callers needing
-// UTF-16 should use ParseUTF16LEWith/ParseUTF16BEWith so the code-unit width is
-// unambiguous.
-func (p *Parser) ParseInputCtx(ctx context.Context, oldTree *Tree, input Input) (*Tree, error) {
-	if input.Read == nil {
-		return nil, ErrInvalidHandle
-	}
-	if err := p.ensureOpen(); err != nil {
-		return nil, err
-	}
-	data, err := collectInputEncoding(input)
-	if err != nil {
-		return nil, err
-	}
-	return p.parseWithOptionsContext(ctx, data, oldTree, nil)
+// ParseInput parses callback input using the runtime's context. The callback
+// is collected into memory and decoded to UTF-8 before parsing. Returned tree
+// offsets refer to that UTF-8 representation. Pass nil for oldTree for a new parse.
+func (p *Parser) ParseInput(input Input, oldTree *Tree) (*Tree, error) {
+	return p.ParseInputContext(p.runtimeContext(), input, oldTree)
 }
 
-// ParseInputContext is a context-first spelling for ParseInputCtx.  It is
-// useful in codebases that use the wasitter argument convention elsewhere.
+// ParseInputContext parses callback input with a caller-supplied context.
+// See [Parser.ParseInput] for encoding and buffering behavior.
 func (p *Parser) ParseInputContext(ctx context.Context, input Input, oldTree *Tree) (*Tree, error) {
-	return p.ParseInputCtx(ctx, oldTree, input)
+	return p.ParseInputWithOptionsContext(ctx, input, oldTree, nil)
 }
 
-// ParseInputWithOptionsCtx is the options-aware counterpart of ParseInputCtx.
-func (p *Parser) ParseInputWithOptionsCtx(ctx context.Context, oldTree *Tree, input Input, options *ParseOptions) (*Tree, error) {
+// ParseInputWithOptionsContext parses callback input with a context and
+// progress options. The callback is collected before entering the guest;
+// progress callbacks run before and after parsing. See [Parser.ParseInput].
+func (p *Parser) ParseInputWithOptionsContext(ctx context.Context, input Input, oldTree *Tree, options *ParseOptions) (*Tree, error) {
 	if input.Read == nil {
 		return nil, ErrInvalidHandle
 	}
 	if err := p.ensureOpen(); err != nil {
 		return nil, err
+	}
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 	}
 	data, err := collectInputEncoding(input)
 	if err != nil {
@@ -69,7 +63,7 @@ func collectInputEncoding(input Input) ([]byte, error) {
 		}
 		return utf16BytesToUTF8(raw, binary.BigEndian)
 	default:
-		return nil, fmt.Errorf("%w: ParseInputCtx requires UTF-8 or explicit UTF-16LE/UTF-16BE input", ErrUnsupported)
+		return nil, fmt.Errorf("%w: ParseInput requires UTF-8 or explicit UTF-16LE/UTF-16BE input", ErrUnsupported)
 	}
 }
 

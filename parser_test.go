@@ -68,8 +68,8 @@ func TestJSONNodeNavigationAndRanges(t *testing.T) {
 	if root.IsNull() || !root.IsNamed() {
 		t.Fatalf("root = %#v, want a named non-null node", root)
 	}
-	if root.Type() != "document" || root.Kind() != "document" {
-		t.Fatalf("root type/kind = %q/%q, want document/document", root.Type(), root.Kind())
+	if root.Type() != "document" || root.Type() != "document" {
+		t.Fatalf("root type/kind = %q/%q, want document/document", root.Type(), root.Type())
 	}
 	if got, want := root.StartByte(), uint32(0); got != want {
 		t.Errorf("root.StartByte() = %d, want %d", got, want)
@@ -208,7 +208,7 @@ func TestTreeCopyAndNodeEquality(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = clone.Close() })
 	root, copiedRoot := tree.RootNode(), clone.RootNode()
-	if !root.Equal(root) || !root.Eq(root) {
+	if !root.Equal(root) || !root.Equal(root) {
 		t.Error("a node should compare equal to itself")
 	}
 	if root.Equal(copiedRoot) {
@@ -228,14 +228,14 @@ func TestNodeRangeQueriesAndMetadata(t *testing.T) {
 	root := tree.RootNode()
 	array := root.NamedChild(0)
 	number, literal := array.NamedChild(0), array.NamedChild(1)
-	if number.KindID() == 0 || number.Symbol() != number.KindID() {
-		t.Errorf("number kind/symbol = %d/%d", number.KindID(), number.Symbol())
+	if number.KindID() == 0 || number.KindID() != number.KindID() {
+		t.Errorf("number kind/symbol = %d/%d", number.KindID(), number.KindID())
 	}
 	if number.GrammarSymbol() == 0 {
 		t.Error("number GrammarSymbol() = 0")
 	}
-	if !number.IsValid() || number.IsNull() || !number.IsNamed() || number.IsMissing() || number.IsExtra() || number.IsError() || number.HasError() {
-		t.Errorf("unexpected number flags: valid=%v null=%v named=%v missing=%v extra=%v error=%v hasError=%v", number.IsValid(), number.IsNull(), number.IsNamed(), number.IsMissing(), number.IsExtra(), number.IsError(), number.HasError())
+	if !number.Valid() || number.IsNull() || !number.IsNamed() || number.IsMissing() || number.IsExtra() || number.IsError() || number.HasError() {
+		t.Errorf("unexpected number flags: valid=%v null=%v named=%v missing=%v extra=%v error=%v hasError=%v", number.Valid(), number.IsNull(), number.IsNamed(), number.IsMissing(), number.IsExtra(), number.IsError(), number.HasError())
 	}
 	if got := number.Range(); got.StartByte != number.StartByte() || got.EndByte != number.EndByte() || got.StartPoint != number.StartPoint() || got.EndPoint != number.EndPoint() {
 		t.Errorf("Range() %#v does not match individual accessors", got)
@@ -322,7 +322,7 @@ func TestNewParserWithRuntimeRejectsClosedRuntime(t *testing.T) {
 	}
 }
 
-func TestNewParserLazilyBindsLanguageRuntime(t *testing.T) {
+func TestZeroParserBindsLanguageRuntime(t *testing.T) {
 	rt, err := wasitter.NewJSONRuntime(context.Background())
 	if err != nil {
 		t.Fatalf("NewJSONRuntime: %v", err)
@@ -337,7 +337,7 @@ func TestNewParserLazilyBindsLanguageRuntime(t *testing.T) {
 	// Match the construction order used by the upstream Go binding.  The
 	// parser has no Runtime at construction time; SetLanguage should attach the
 	// language's Runtime and allocate the guest parser lazily.
-	p := wasitter.NewParser()
+	p := &wasitter.Parser{}
 	if p.Handle() != 0 {
 		t.Fatalf("unbound parser handle = %d, want zero", p.Handle())
 	}
@@ -503,7 +503,7 @@ func TestParseReaderAndProgressCancellation(t *testing.T) {
 	}
 
 	calls := 0
-	_, err = p.ParseWithOptions(context.Background(), []byte("1"), nil, &wasitter.ParseOptions{
+	_, err = p.ParseWithOptionsContext(context.Background(), []byte("1"), nil, &wasitter.ParseOptions{
 		ProgressCallback: func(wasitter.ParseState) bool {
 			calls++
 			return true
@@ -523,20 +523,11 @@ func TestParserConvenienceInputForms(t *testing.T) {
 		"string": func() (*wasitter.Tree, error) {
 			return p.ParseString(`{"ok": true}`, nil)
 		},
-		"utf8": func() (*wasitter.Tree, error) {
-			return p.ParseUTF8([]byte(`{"ok": true}`), nil)
-		},
-		"compat": func() (*wasitter.Tree, error) {
-			return p.ParseCompat([]byte(`{"ok": true}`), nil), nil
-		},
 		"must": func() (*wasitter.Tree, error) {
 			return p.MustParse([]byte(`{"ok": true}`), nil), nil
 		},
 		"context": func() (*wasitter.Tree, error) {
 			return p.ParseContext(context.Background(), []byte(`{"ok": true}`), nil)
-		},
-		"ctx-alias": func() (*wasitter.Tree, error) {
-			return p.ParseCtx(context.Background(), []byte(`{"ok": true}`), nil)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -557,7 +548,7 @@ func TestParserConvenienceInputForms(t *testing.T) {
 	}
 	chunks := [][]byte{[]byte(`{"`), []byte("ok"), []byte(`":true}`)}
 	i := 0
-	tree, err := p.ParseInput(func(offset uint32, point wasitter.Point) []byte {
+	tree, err := p.ParseInput(wasitter.Input{Read: func(offset uint32, point wasitter.Point) []byte {
 		calls = append(calls, struct {
 			offset uint32
 			point  wasitter.Point
@@ -568,7 +559,7 @@ func TestParserConvenienceInputForms(t *testing.T) {
 		chunk := chunks[i]
 		i++
 		return chunk
-	}, nil)
+	}}, nil)
 	if err != nil {
 		t.Fatalf("ParseInput: %v", err)
 	}
@@ -579,7 +570,7 @@ func TestParserConvenienceInputForms(t *testing.T) {
 	if len(calls) != 4 || calls[0].offset != 0 || calls[1].offset != 2 || calls[2].offset != 4 || calls[3].offset != 11 {
 		t.Errorf("ParseInput callback calls = %#v", calls)
 	}
-	if _, err := p.ParseInput(nil, nil); err == nil {
+	if _, err := p.ParseInput(wasitter.Input{}, nil); err == nil {
 		t.Error("ParseInput(nil) should return an error")
 	}
 
@@ -587,10 +578,10 @@ func TestParserConvenienceInputForms(t *testing.T) {
 	units := utf16.Encode([]rune(utf8Source))
 	for name, parse := range map[string]func([]uint16) (*wasitter.Tree, error){
 		"utf16le": func(input []uint16) (*wasitter.Tree, error) {
-			return p.ParseUTF16LE(input, nil)
+			return p.ParseUTF16(input, nil)
 		},
 		"utf16be": func(input []uint16) (*wasitter.Tree, error) {
-			return p.ParseUTF16BE(input, nil)
+			return p.ParseUTF16(input, nil)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -610,7 +601,7 @@ func TestParseWithOptionsAcceptsUpstreamCallbackForm(t *testing.T) {
 	p, _ := newJSONParser(t)
 	source := []byte(`{"callback": [1, 2]}`)
 	calls := 0
-	tree, err := p.ParseWithOptions(func(offset int, _ wasitter.Point) []byte {
+	tree, err := p.ParseCallbackWithOptions(func(offset int, _ wasitter.Point) []byte {
 		calls++
 		if offset >= len(source) {
 			return nil
@@ -627,7 +618,7 @@ func TestParseWithOptionsAcceptsUpstreamCallbackForm(t *testing.T) {
 
 	// The existing context+bytes form remains available through the same
 	// method, including a nil options argument.
-	contextTree, err := p.ParseWithOptions(context.Background(), []byte(`null`), nil, nil)
+	contextTree, err := p.ParseWithOptionsContext(context.Background(), []byte(`null`), nil, nil)
 	if err != nil {
 		t.Fatalf("ParseWithOptions(context, bytes, oldTree, options): %v", err)
 	}
@@ -642,12 +633,12 @@ func TestParserInputCallbacksAcceptRemainingSuffixes(t *testing.T) {
 	source := []byte(`{"ok": [1, 2]}`)
 	// This is the callback shape used by go-tree-sitter: each invocation may
 	// return the complete suffix beginning at the requested offset.
-	tree, err := p.ParseInput(func(offset uint32, _ wasitter.Point) []byte {
+	tree, err := p.ParseInput(wasitter.Input{Read: func(offset uint32, _ wasitter.Point) []byte {
 		if int(offset) >= len(source) {
 			return nil
 		}
 		return source[offset:]
-	}, nil)
+	}}, nil)
 	if err != nil {
 		t.Fatalf("suffix ParseInput: %v", err)
 	}
@@ -657,7 +648,7 @@ func TestParserInputCallbacksAcceptRemainingSuffixes(t *testing.T) {
 	}
 
 	units := utf16.Encode([]rune(string(source)))
-	utfTree, err := p.ParseUTF16LEWith(func(offset int, _ wasitter.Point) []uint16 {
+	utfTree, err := p.ParseUTF16With(func(offset int, _ wasitter.Point) []uint16 {
 		if offset >= len(units) {
 			return nil
 		}
@@ -681,7 +672,7 @@ func TestParserInputCallbacksPreserveRepeatedSuffixChunks(t *testing.T) {
 	chunks := [][]byte{source[:2], source[2:]}
 	var calls int
 	var offsets []uint32
-	tree, err := p.ParseInput(func(offset uint32, _ wasitter.Point) []byte {
+	tree, err := p.ParseInput(wasitter.Input{Read: func(offset uint32, _ wasitter.Point) []byte {
 		offsets = append(offsets, offset)
 		if calls >= len(chunks) {
 			return nil
@@ -689,7 +680,7 @@ func TestParserInputCallbacksPreserveRepeatedSuffixChunks(t *testing.T) {
 		chunk := chunks[calls]
 		calls++
 		return chunk
-	}, nil)
+	}}, nil)
 	if err != nil {
 		t.Fatalf("ParseInput repeated chunks: %v", err)
 	}
@@ -710,7 +701,7 @@ func TestParserInputCallbacksPreserveRepeatedSuffixChunks(t *testing.T) {
 	units := utf16.Encode([]rune(string(source)))
 	utfChunks := [][]uint16{units[:2], units[2:]}
 	utfCalls := 0
-	utfTree, err := p.ParseUTF16LEWith(func(offset int, _ wasitter.Point) []uint16 {
+	utfTree, err := p.ParseUTF16With(func(offset int, _ wasitter.Point) []uint16 {
 		if utfCalls >= len(utfChunks) {
 			return nil
 		}
@@ -720,7 +711,7 @@ func TestParserInputCallbacksPreserveRepeatedSuffixChunks(t *testing.T) {
 		return chunk
 	}, nil)
 	if err != nil {
-		t.Fatalf("ParseUTF16LEWith repeated chunks: %v", err)
+		t.Fatalf("ParseUTF16With repeated chunks: %v", err)
 	}
 	defer utfTree.Close()
 	if got := utfTree.Source(); got != string(source) {
@@ -742,7 +733,7 @@ func TestParserContextCancellationIsPropagated(t *testing.T) {
 	}
 }
 
-func TestParserTimeoutLoggerAndResetAliases(t *testing.T) {
+func TestParserTimeoutLoggerAndReset(t *testing.T) {
 	p, _ := newJSONParser(t)
 	if err := p.SetTimeout(1500 * time.Microsecond); err != nil {
 		t.Fatalf("SetTimeout: %v", err)
@@ -759,8 +750,9 @@ func TestParserTimeoutLoggerAndResetAliases(t *testing.T) {
 	if err := p.Reset(); err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
-	var gotType, gotMessage string
-	logger := wasitter.Logger(func(typ, message string) {
+	var gotType wasitter.LogType
+	var gotMessage string
+	logger := wasitter.Logger(func(typ wasitter.LogType, message string) {
 		gotType, gotMessage = typ, message
 	})
 	if err := p.SetLogger(logger); err != nil {
@@ -779,7 +771,7 @@ func TestParserTimeoutLoggerAndResetAliases(t *testing.T) {
 	_ = gotMessage
 }
 
-func TestParserCompatibilityCancellationAndDotGraphAPIs(t *testing.T) {
+func TestParserCancellationFlag(t *testing.T) {
 	p, _ := newJSONParser(t)
 
 	// The upstream binding exposes a pointer-sized cancellation flag.  The WASM
@@ -800,22 +792,13 @@ func TestParserCompatibilityCancellationAndDotGraphAPIs(t *testing.T) {
 	}
 	defer tree.Close()
 
-	if err := p.PrintDotGraphs(nil); err == nil {
-		t.Fatal("PrintDotGraphs(nil) unexpectedly succeeded")
-	}
-	if err := p.StopPrintingDotGraphs(); err != nil {
-		t.Fatalf("StopPrintingDotGraphs: %v", err)
-	}
-	if err := tree.PrintDotGraph(-1); err == nil {
-		t.Fatal("Tree.PrintDotGraph(-1) unexpectedly succeeded")
-	}
 }
 
-func TestParserUTF16OptionsCompatibilityAliases(t *testing.T) {
+func TestParserUTF16ProgressOptions(t *testing.T) {
 	p, _ := newJSONParser(t)
 	units := utf16.Encode([]rune(`{"ok": true}`))
 	calls := 0
-	tree, err := p.ParseUTF16LEWithOptions(func(offset int, _ wasitter.Point) []uint16 {
+	tree, err := p.ParseUTF16WithOptions(func(offset int, _ wasitter.Point) []uint16 {
 		calls++
 		if offset >= len(units) {
 			return nil
@@ -823,20 +806,20 @@ func TestParserUTF16OptionsCompatibilityAliases(t *testing.T) {
 		return units[offset:]
 	}, nil, &wasitter.ParseOptions{ProgressCallback: func(wasitter.ParseState) bool { return false }})
 	if err != nil {
-		t.Fatalf("ParseUTF16LEWithOptions: %v", err)
+		t.Fatalf("ParseUTF16WithOptions: %v", err)
 	}
 	defer tree.Close()
 	if calls < 2 || tree.Source() != `{"ok": true}` {
 		t.Fatalf("UTF-16 options callback calls/source = %d/%q", calls, tree.Source())
 	}
-	beTree, err := p.ParseUTF16BEWithOptions(func(offset int, point wasitter.Point) []uint16 {
+	beTree, err := p.ParseUTF16WithOptions(func(offset int, point wasitter.Point) []uint16 {
 		if offset >= len(units) {
 			return nil
 		}
 		return units[offset:]
 	}, nil, nil)
 	if err != nil {
-		t.Fatalf("ParseUTF16BEWithOptions: %v", err)
+		t.Fatalf("ParseUTF16WithOptions: %v", err)
 	}
 	defer beTree.Close()
 	if beTree.Source() != `{"ok": true}` {

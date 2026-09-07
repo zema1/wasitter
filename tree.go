@@ -210,9 +210,6 @@ func (t *Tree) RootNode() Node {
 	return n
 }
 
-// Root is a concise alias for RootNode.
-func (t *Tree) Root() Node { return t.RootNode() }
-
 // RootNodeError is an alternate spelling for RootNodeE retained for callers
 // that prefer an explicit error suffix.
 func (t *Tree) RootNodeError() (Node, error) { return t.RootNodeE() }
@@ -245,19 +242,13 @@ func (t *Tree) RootNodeE() (Node, error) {
 	return t.registerNode(handle), nil
 }
 
-// RootNodeWithOffset returns a root node shifted by byte/point offsets when
-// the guest bridge exposes that optional operation.  The byte offset accepts
-// the fixed-width uint32 used by the WASM ABI as well as the int/uint forms
-// used by the native Go binding; values outside the wasm32 range are rejected
-// instead of being silently truncated.
-func (t *Tree) RootNodeWithOffset(offset any, offsetPoint Point) (Node, error) {
+// RootNodeWithOffset returns the root shifted by a UTF-8 byte offset and
+// point offset. It returns [ErrUnsupported] when the module lacks this operation.
+func (t *Tree) RootNodeWithOffset(offset uint32, offsetPoint Point) (Node, error) {
 	if t == nil {
 		return Node{}, ErrClosed
 	}
-	offsetBytes, ok := uint32Arg(offset)
-	if !ok {
-		return Node{}, fmt.Errorf("wasitter: root offset must be a non-negative uint32, got %T", offset)
-	}
+	offsetBytes := offset
 	t.mu.RLock()
 	if err := t.ensureOpen(); err != nil {
 		t.mu.RUnlock()
@@ -286,9 +277,6 @@ func (t *Tree) Copy() *Tree {
 	c, _ := t.CopyE()
 	return c
 }
-
-// Clone is an idiomatic alias for Copy.
-func (t *Tree) Clone() (*Tree, error) { return t.CopyE() }
 
 // CopyE creates a tree copy and returns any ABI error.
 func (t *Tree) CopyE() (*Tree, error) {
@@ -349,22 +337,18 @@ func (t *Tree) CopyE() (*Tree, error) {
 	return copyTree, nil
 }
 
-// Edit updates the tree's byte/point coordinates after a source edit.
-// Both InputEdit and *InputEdit are accepted.  The value form is the
-// allocation-free wasitter spelling; accepting a pointer keeps calls written
-// for the native go-tree-sitter binding source-compatible.
-func (t *Tree) Edit(edit any) error {
+// Edit updates tree coordinates after a source change. Describe the edit
+// using UTF-8 byte offsets and points, then pass this tree to [Parser.ParseContext]
+// along with the updated source to reuse unchanged portions of the tree.
+func (t *Tree) Edit(edit InputEdit) error {
 	if err := t.ensureOpen(); err != nil {
 		return err
 	}
-	editValue, err := inputEditValue(edit)
-	if err != nil {
-		return err
-	}
+
 	// TSInputEdit is nine little-endian uint32 values (36 bytes).  The shared
 	// encoder also resolves the upstream *Position compatibility aliases on
 	// InputEdit, keeping Tree.Edit and Node.Edit byte-for-byte consistent.
-	buf := encodeInputEdit(editValue)
+	buf := encodeInputEdit(edit)
 	// Editing a TSTree mutates its internal coordinate data.  Use the write
 	// lock so concurrent node/cursor calls cannot observe a partially edited
 	// tree, and so Tree.Close cannot delete it during the edit transaction.
@@ -470,9 +454,6 @@ func (t *Tree) ToSExpression() string {
 // ToSexp is the upstream spelling.
 func (t *Tree) ToSexp() string { return t.ToSExpression() }
 
-// SExpression is an alias for ToSExpression.
-func (t *Tree) SExpression() string { return t.ToSExpression() }
-
 // Walk creates a cursor positioned at the root node.
 func (t *Tree) Walk() *TreeCursor {
 	root := t.RootNode()
@@ -487,9 +468,6 @@ func (t *Tree) IncludedRanges() []Range {
 	ranges, _ := t.IncludedRangesE()
 	return ranges
 }
-
-// GetIncludedRanges is a compatibility alias for IncludedRanges.
-func (t *Tree) GetIncludedRanges() []Range { return t.IncludedRanges() }
 
 // IncludedRangesE is the error-returning form of IncludedRanges.
 func (t *Tree) IncludedRangesE() ([]Range, error) {

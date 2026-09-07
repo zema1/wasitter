@@ -1,0 +1,67 @@
+name: Release grammars
+
+on:
+  push:
+    tags: ["**"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: |
+            go.sum
+            comparison/go.sum
+      - uses: jdx/mise-action@v2
+      - name: Test Go API and build tooling
+        run: |
+          go test ./...
+          CGO_ENABLED=0 go test ./...
+          go test -race ./...
+          go vet ./...
+      - name: Check embedded artifacts and native behavior
+        run: |
+          mise run wasm-check
+          git diff --exit-code -- internal/wasm/assets
+          mise run native-test
+      - name: Build and validate all release grammars
+        run: |
+          mise run release:build
+          mise run release:check
+          mise run release:prepare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grammar-assets
+          path: dist/grammars/*
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: grammar-assets
+          path: dist/grammars
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: dist/grammars/*
+          fail_on_unmatched_files: true

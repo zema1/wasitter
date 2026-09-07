@@ -29,7 +29,7 @@ func TestDefinedInputCallbackTypesAreAccepted(t *testing.T) {
 		}
 		return source[offset:]
 	})
-	tree, err := p.ParseInput(uintReader, nil)
+	tree, err := p.ParseInput(wasitter.Input{Read: wasitter.ReadFunc(uintReader)}, nil)
 	if err != nil {
 		t.Fatalf("ParseInput(defined uint32 callback): %v", err)
 	}
@@ -44,7 +44,7 @@ func TestDefinedInputCallbackTypesAreAccepted(t *testing.T) {
 		}
 		return source[offset:]
 	})
-	tree, err = p.ParseWithOptions(intReader, nil, nil)
+	tree, err = p.ParseCallbackWithOptions(intReader, nil, nil)
 	if err != nil {
 		t.Fatalf("ParseWithOptions(defined int callback): %v", err)
 	}

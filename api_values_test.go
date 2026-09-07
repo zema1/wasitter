@@ -6,10 +6,7 @@ import (
 	wasitter "github.com/zema1/wasitter"
 )
 
-// The native go-tree-sitter API passes InputEdit by pointer, while
-// wasitter's value API accepts the same edit without an allocation. Verify
-// that both forms reach the same wire representation.
-func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
+func TestTreeEditAndValueNavigation(t *testing.T) {
 	parser, runtime, err := wasitter.NewJSONParser(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -31,22 +28,19 @@ func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
 		OldEndPoint: wasitter.Point{Row: 0, Column: 2},
 		NewEndPoint: wasitter.Point{Row: 0, Column: 3},
 	}
-	if err := tree.Edit(&edit); err != nil {
-		t.Fatalf("pointer edit: %v", err)
-	}
 	if err := tree.Edit(edit); err != nil {
 		t.Fatalf("value edit: %v", err)
 	}
 	root := tree.RootNode()
 	child := root.Child(0)
-	if !root.Equal(&root) || !root.Equals(&root) || !root.Eq(&root) {
-		t.Fatal("node equality did not accept pointer arguments")
+	if !root.Equal(root) {
+		t.Fatal("node equality is not reflexive")
 	}
-	if got := root.ChildWithDescendant(&child); got.IsNull() {
-		t.Fatal("ChildWithDescendant did not accept pointer argument")
+	if got := root.ChildWithDescendant(child); got.IsNull() {
+		t.Fatal("ChildWithDescendant did not find direct child")
 	}
-	if err := child.Edit(&edit); err != nil {
-		t.Fatalf("node pointer edit: %v", err)
+	if err := child.Edit(edit); err != nil {
+		t.Fatalf("node edit: %v", err)
 	}
 	if cursor := wasitter.NewTreeCursor(root); cursor == nil {
 		t.Fatal("NewTreeCursor did not accept a Node value")
@@ -60,7 +54,7 @@ func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
 	}
 }
 
-func TestRootNodeWithOffsetAcceptsNativeIntegerWidths(t *testing.T) {
+func TestRootNodeWithOffsetShiftsCoordinates(t *testing.T) {
 	parser, runtime, err := wasitter.NewJSONParser(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -73,13 +67,11 @@ func TestRootNodeWithOffsetAcceptsNativeIntegerWidths(t *testing.T) {
 	}
 	defer tree.Close()
 
-	// The upstream method uses int; the WASM-native form uses uint32. Both
-	// should compile and produce a usable shifted root.
-	if node, err := tree.RootNodeWithOffset(0, wasitter.Point{}); err != nil || node.IsNull() {
-		t.Fatalf("uint32 literal offset: node=%v err=%v", node, err)
+	node, err := tree.RootNodeWithOffset(8, wasitter.Point{Row: 2, Column: 3})
+	if err != nil {
+		t.Fatal(err)
 	}
-	var nativeOffset int = 0
-	if node, err := tree.RootNodeWithOffset(nativeOffset, wasitter.Point{}); err != nil || node.IsNull() {
-		t.Fatalf("int offset: node=%v err=%v", node, err)
+	if node.StartByte() != 8 || node.EndByte() != 9 || node.StartPoint() != (wasitter.Point{Row: 2, Column: 3}) {
+		t.Fatalf("shifted root = %d..%d, %v", node.StartByte(), node.EndByte(), node.StartPoint())
 	}
 }

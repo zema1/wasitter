@@ -38,3 +38,20 @@ run = "cd comparison && CGO_ENABLED=1 go test ./..."
 [tasks.native-bench]
 description = "Run the CGO native benchmark suite"
 run = "cd comparison && CGO_ENABLED=1 go test -run '^$' -bench . -benchmem"
+
+[tasks."release:build"]
+description = "Build all pinned grammars and export their licenses into a fresh staging directory"
+run = "go run ./cmd/wasitter-build build-grammars"
+
+[tasks."release:check"]
+description = "Check all staged release grammars against WASM fixtures and native bindings"
+run = '''
+set -eu
+WASITTER_GRAMMAR_DIR="$PWD/.tmp/release/grammars" go test . -run '^TestGeneratedGrammarWASM$' -count=1
+cd comparison
+WASITTER_GRAMMAR_DIR="$PWD/../.tmp/release/grammars" CGO_ENABLED=1 go test . -run '^TestGrammarParity$' -count=1
+'''
+
+[tasks."release:prepare"]
+description = "Prepare individual WASM release assets, checksums, and license notices"
+run = 'go run ./cmd/wasitter-build prepare-grammar-assets'

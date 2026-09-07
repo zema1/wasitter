@@ -16,7 +16,11 @@ import (
 // the test discovers it, loads its exported language, and parses a minimal
 // representative input.
 func TestGeneratedGrammarWASM(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("internal", "wasm", "assets", "wasitter-*.wasm"))
+	directory := os.Getenv("WASITTER_GRAMMAR_DIR")
+	if directory == "" {
+		directory = filepath.Join("internal", "wasm", "assets")
+	}
+	paths, err := filepath.Glob(filepath.Join(directory, "wasitter-*.wasm"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,6 +30,9 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 	registry, err := grammarbuild.LoadRegistry(filepath.Join("scripts", "grammar-registry.json"))
 	if err != nil {
 		t.Fatalf("LoadRegistry: %v", err)
+	}
+	if os.Getenv("WASITTER_GRAMMAR_DIR") != "" && len(paths) != len(registry.Grammars) {
+		t.Fatalf("release has %d grammars, registry has %d", len(paths), len(registry.Grammars))
 	}
 	for _, path := range paths {
 		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "wasitter-"), ".wasm")
@@ -71,7 +78,7 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("RootNode: %v", err)
 			}
-			if root.IsNull() || root.Type() == "" {
+			if root.IsNull() || root.Type() == "" || root.HasError() {
 				t.Fatalf("invalid root node: %#v", root)
 			}
 		})

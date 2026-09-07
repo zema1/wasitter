@@ -10,7 +10,7 @@ import (
 	wasitter "github.com/zema1/wasitter"
 )
 
-func TestCompatibilityCursorConstructorAndInputCtx(t *testing.T) {
+func TestCursorConstructorAndInputContext(t *testing.T) {
 	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -24,17 +24,14 @@ func TestCompatibilityCursorConstructorAndInputCtx(t *testing.T) {
 	}
 	defer rootTree.Close()
 	root := rootTree.RootNode()
-	cursor := wasitter.NewTreeCursor(&root)
+	cursor := wasitter.NewTreeCursor(root)
 	if cursor == nil || cursor.CurrentNode().Type() != "document" {
 		t.Fatalf("NewTreeCursor current node = %#v", cursor)
 	}
 	defer cursor.Close()
-	if cursor.CurrentNodePtr() == nil || cursor.NodePtr() == nil {
-		t.Fatal("pointer cursor accessors returned nil")
-	}
 
 	input := []byte(`[2]`)
-	tree, err := p.ParseInputCtx(context.Background(), nil, wasitter.Input{
+	tree, err := p.ParseInputContext(context.Background(), wasitter.Input{
 		Read: func(offset uint32, _ wasitter.Point) []byte {
 			if offset >= uint32(len(input)) {
 				return nil
@@ -42,7 +39,7 @@ func TestCompatibilityCursorConstructorAndInputCtx(t *testing.T) {
 			return input[offset:]
 		},
 		Encoding: wasitter.InputEncodingUTF8,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +49,7 @@ func TestCompatibilityCursorConstructorAndInputCtx(t *testing.T) {
 	}
 }
 
-func TestCompatibilityNilOldTreeArgumentForms(t *testing.T) {
+func TestParsingWithNilOldTree(t *testing.T) {
 	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +60,7 @@ func TestCompatibilityNilOldTreeArgumentForms(t *testing.T) {
 	// The compatibility dispatcher also accepts (ctx, oldTree, input). An
 	// untyped nil old tree is represented as an interface nil and must still
 	// select this alternate form.
-	tree, err := p.ParseCtx(context.Background(), nil, []byte(`[4]`))
+	tree, err := p.ParseContext(context.Background(), []byte(`[4]`), nil)
 	if err != nil {
 		t.Fatalf("ParseCtx(ctx, nil, input): %v", err)
 	}
@@ -74,7 +71,7 @@ func TestCompatibilityNilOldTreeArgumentForms(t *testing.T) {
 
 	input := []byte(`[5]`)
 	// Likewise, the upstream ParseInput form is (oldTree, Input).
-	inputTree, err := p.ParseInput(nil, wasitter.Input{
+	inputTree, err := p.ParseInput(wasitter.Input{
 		Read: func(offset uint32, _ wasitter.Point) []byte {
 			if offset >= uint32(len(input)) {
 				return nil
@@ -82,7 +79,7 @@ func TestCompatibilityNilOldTreeArgumentForms(t *testing.T) {
 			return input[offset:]
 		},
 		Encoding: wasitter.InputEncodingUTF8,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("ParseInput(nil, Input): %v", err)
 	}
@@ -92,7 +89,7 @@ func TestCompatibilityNilOldTreeArgumentForms(t *testing.T) {
 	}
 }
 
-func TestCompatibilityInputUTF16ByteOrders(t *testing.T) {
+func TestInputUTF16ByteOrders(t *testing.T) {
 	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +111,7 @@ func TestCompatibilityInputUTF16ByteOrders(t *testing.T) {
 			for i, unit := range units {
 				tc.order.PutUint16(raw[i*2:], unit)
 			}
-			tree, err := p.ParseInputCtx(context.Background(), nil, wasitter.Input{
+			tree, err := p.ParseInputContext(context.Background(), wasitter.Input{
 				Read: func(offset uint32, _ wasitter.Point) []byte {
 					if offset >= uint32(len(raw)) {
 						return nil
@@ -128,7 +125,7 @@ func TestCompatibilityInputUTF16ByteOrders(t *testing.T) {
 					return raw[offset:end]
 				},
 				Encoding: tc.encoding,
-			})
+			}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -150,10 +147,10 @@ func TestCallbackParsingChecksLifecycleBeforeCallback(t *testing.T) {
 	}
 	defer rt.Close()
 	called := false
-	_, err = p.ParseInput(func(uint32, wasitter.Point) []byte {
+	_, err = p.ParseInput(wasitter.Input{Read: func(uint32, wasitter.Point) []byte {
 		called = true
 		return []byte("null")
-	}, nil)
+	}}, nil)
 	if !errors.Is(err, wasitter.ErrClosed) {
 		t.Fatalf("ParseInput after close = %v, want ErrClosed", err)
 	}
@@ -162,7 +159,7 @@ func TestCallbackParsingChecksLifecycleBeforeCallback(t *testing.T) {
 	}
 }
 
-func TestCompatibilityNodeIterators(t *testing.T) {
+func TestNodeIterators(t *testing.T) {
 	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +172,7 @@ func TestCompatibilityNodeIterators(t *testing.T) {
 	}
 	defer tree.Close()
 	root := tree.RootNode()
-	it := wasitter.NewIterator(&root, wasitter.DFSMode)
+	it := wasitter.NewIterator(root, wasitter.DFSMode)
 	defer it.Close()
 	var got []string
 	if err := it.ForEach(func(node *wasitter.Node) error {
@@ -187,7 +184,7 @@ func TestCompatibilityNodeIterators(t *testing.T) {
 	if len(got) == 0 || got[0] != "document" {
 		t.Fatalf("DFS iterator = %#v", got)
 	}
-	named := wasitter.NewNamedIterator(&root, wasitter.BFSMode)
+	named := wasitter.NewNamedIterator(root, wasitter.BFSMode)
 	defer named.Close()
 	if node, err := named.Next(); err != nil || node == nil || node.Type() != "document" {
 		t.Fatalf("BFS first = %#v, %v", node, err)

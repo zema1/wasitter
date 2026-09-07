@@ -68,14 +68,9 @@ const (
 // that QueryErrorSyntax remains zero as in the upstream Go binding.
 const QueryErrorNone QueryErrorKind = ^QueryErrorKind(0)
 
-// QueryErrorType is the historical name used by older Go Tree-sitter
-// bindings.  Keep it as an alias (rather than a distinct type) so values and
-// constants can be assigned in either spelling without conversions.
-type QueryErrorType = QueryErrorKind
-
-// QueryErrorTypeToString returns the stable, human-readable name used by
+// QueryErrorKindToString returns the stable, human-readable name used by
 // Tree-sitter bindings for an error kind.
-func QueryErrorTypeToString(errorType QueryErrorType) string {
+func QueryErrorKindToString(errorType QueryErrorKind) string {
 	switch QueryErrorKind(errorType) {
 	case QueryErrorNone:
 		return "none"
@@ -105,21 +100,10 @@ type QueryError struct {
 	Row     uint32
 	Column  uint32
 	Kind    QueryErrorKind
-	// Type is the spelling used by older Go Tree-sitter bindings.  Values
-	// produced by this package populate both Type and Kind; callers creating a
-	// QueryError themselves may use either field.
-	Type QueryErrorType
 }
 
 func (e QueryError) Error() string {
-	// Kind is the modern spelling while Type is retained for the historical
-	// binding.  A caller constructing a value may initialize either field;
-	// honor a non-zero Type when Kind was left at its zero (syntax) value so the
-	// resulting diagnostic does not silently use the wrong category.
 	kind := e.Kind
-	if kind == QueryErrorSyntax && e.Type != QueryErrorSyntax {
-		kind = QueryErrorKind(e.Type)
-	}
 	// Keep the diagnostic shape used by go-tree-sitter.  In particular, syntax
 	// and structure errors carry the offending source line and a caret in
 	// Message, while name errors carry the invalid token.  Prefixing those
@@ -159,24 +143,10 @@ const (
 	QueryPredicateStepString
 )
 
-// Upstream tree-sitter uses the Type-prefixed spellings. Keep both names so
-// metadata code can be shared without conversion shims.
-const (
-	// QueryPredicateStepTypeDone is an alias for QueryPredicateStepDone.
-	QueryPredicateStepTypeDone = QueryPredicateStepDone
-	// QueryPredicateStepTypeCapture is an alias for QueryPredicateStepCapture.
-	QueryPredicateStepTypeCapture = QueryPredicateStepCapture
-	// QueryPredicateStepTypeString is an alias for QueryPredicateStepString.
-	QueryPredicateStepTypeString = QueryPredicateStepString
-)
-
 // QueryPredicateStep is one wire-level step in a query predicate expression.
 type QueryPredicateStep struct {
 	Type    QueryPredicateStepType
 	ValueID uint32
-	// ValueId is the historical/upstream initialism spelling. Values returned
-	// by this package populate both fields.
-	ValueId uint32
 }
 
 // QueryProperty describes a key/value property used by a query predicate.
@@ -185,19 +155,12 @@ type QueryProperty struct {
 	Key       string
 	Value     *string
 	CaptureID *uint32
-	// CaptureId is the spelling used by the upstream Go binding.  CaptureID
-	// is retained as the wasm-width/initialism-friendly form used by this
-	// package.  Metadata returned by the package populates both fields; when
-	// constructing values callers may use either one.
-	CaptureId *uint
 }
 
 // QueryPredicateArg is one argument passed to a general query predicate.
 type QueryPredicateArg struct {
 	CaptureID *uint32
 	String    *string
-	// CaptureId is the upstream spelling; see QueryProperty.CaptureId.
-	CaptureId *uint
 }
 
 // QueryPredicate describes a general (non-built-in) query predicate.
@@ -227,12 +190,9 @@ const (
 // AnyString). Keeping Value as any mirrors Tree-sitter's upstream binding and
 // lets callers inspect all predicate forms without a second tagged union.
 type TextPredicateCapture struct {
-	Value     any
-	Type      TextPredicateType
-	CaptureID uint32
-	// CaptureId is the upstream spelling. Both fields identify the same
-	// capture for values produced by this package.
-	CaptureId     uint
+	Value         any
+	Type          TextPredicateType
+	CaptureID     uint32
 	Positive      bool
 	MatchAllNodes bool
 }
@@ -334,30 +294,12 @@ type Query struct {
 	closed             atomic.Bool
 }
 
-// NewQuery compiles a Tree-sitter query.
-//
-// The current API spelling is NewQuery(language, source).  A number of
-// widely-used Go bindings (most notably smacker/go-tree-sitter) historically
-// exposed the arguments in the opposite order and accepted a byte slice:
-// NewQuery(source, language).  WASM grammars are often adopted by programs
-// that already use one of those bindings, so accepting both forms here keeps
-// migration source-compatible without introducing a second query type.  The
-// following forms are supported:
-//
-//	NewQuery(*Language, string)
-//	NewQuery(*Language, []byte)
-//	NewQuery([]byte, *Language)
-//	NewQuery(string, *Language)
-//
-// Unsupported argument pairs return ErrUnsupported.  A nil language returns
-// ErrNoLanguage, matching the typed form's behavior.  Once normalized, native
-// modules use tsw_query_new; old modules fall back to the common
-// `(node_type) @capture` subset.
-func NewQuery(first, second any) (*Query, error) {
-	language, source, err := normalizeQueryArgs(first, second)
-	if err != nil {
-		return nil, err
-	}
+// NewQuery compiles a Tree-sitter query for language. Source is UTF-8 query
+// text, for example "(identifier) @name". Compilation errors can be inspected
+// with errors.As and [QueryError]. Close the query before its [Runtime].
+// The query keeps its own language reference; the caller may close language
+// after construction. Execute queries using [QueryCursor].
+func NewQuery(language *Language, source string) (*Query, error) {
 	if language == nil {
 		return nil, ErrNoLanguage
 	}
@@ -417,64 +359,6 @@ func NewQuery(first, second any) (*Query, error) {
 	q.populateMetadata()
 	runtimepkg.SetFinalizer(q, func(query *Query) { _ = query.Close() })
 	return q, nil
-}
-
-// CompileQuery is an alias for NewQuery and accepts the same argument forms.
-func CompileQuery(first, second any) (*Query, error) {
-	return NewQuery(first, second)
-}
-
-// normalizeQueryArgs converts the supported NewQuery argument spellings to a
-// language and UTF-8 source string. Keeping this conversion in one place is
-// important: CompileQuery must have exactly the same compatibility behavior,
-// and an interface-valued argument should never be allowed to silently turn a
-// byte slice into a formatted string (for example, "[40 110 117 ...]").
-func normalizeQueryArgs(first, second any) (*Language, string, error) {
-	var (
-		language *Language
-		source   string
-	)
-
-	// The idiomatic/current order: (language, source).
-	if candidate, ok := first.(*Language); ok {
-		language = candidate
-		switch value := second.(type) {
-		case string:
-			source = value
-		case []byte:
-			source = string(value)
-		default:
-			return nil, "", fmt.Errorf("%w: query source must be string or []byte, got %T", ErrUnsupported, second)
-		}
-		return language, source, nil
-	}
-
-	// The historical/reversed order: (source, language). Accepting string in
-	// addition to []byte is a small convenience for callers migrating code that
-	// used a source-first constructor but already stores queries as strings.
-	switch value := first.(type) {
-	case []byte:
-		source = string(value)
-	case string:
-		source = value
-	default:
-		if first == nil {
-			// An untyped nil cannot carry enough information to choose an order.
-			// Treat it as a missing language, which is the most useful diagnostic
-			// for calls such as NewQuery(nil, "...").
-			return nil, "", ErrNoLanguage
-		}
-		return nil, "", fmt.Errorf("%w: first query argument must be *Language, string, or []byte, got %T", ErrUnsupported, first)
-	}
-
-	if candidate, ok := second.(*Language); ok {
-		language = candidate
-		return language, source, nil
-	}
-	if second == nil {
-		return nil, "", ErrNoLanguage
-	}
-	return nil, "", fmt.Errorf("%w: second query argument must be *Language, got %T", ErrUnsupported, second)
 }
 
 func (q *Query) ensureOpen() error {
@@ -563,12 +447,6 @@ func (q *Query) CaptureName(id uint32) string {
 	return s
 }
 
-// CaptureNameForID is an initialism-friendly alias for CaptureName.
-func (q *Query) CaptureNameForID(id uint32) string { return q.CaptureName(id) }
-
-// CaptureNameForId is the spelling used by the upstream Go binding.
-func (q *Query) CaptureNameForId(id uint32) string { return q.CaptureName(id) }
-
 // CaptureNameE returns the capture name associated with id and reports query
 // or ABI errors that CaptureName intentionally hides.
 func (q *Query) CaptureNameE(id uint32) (string, error) {
@@ -614,16 +492,6 @@ func (q *Query) CaptureQuantifierForID(pattern, capture uint32) CaptureQuantifie
 	return CaptureQuantifier(q.queryUintWithArgs([]string{"tsw_query_capture_quantifier_for_id", "wasitter_query_capture_quantifier_for_id", "ts_query_capture_quantifier_for_id", "query_capture_quantifier_for_id"}, uint64(pattern), uint64(capture)))
 }
 
-// CaptureQuantifier is an alias for CaptureQuantifierForID.
-func (q *Query) CaptureQuantifier(pattern, capture uint32) CaptureQuantifier {
-	return q.CaptureQuantifierForID(pattern, capture)
-}
-
-// CaptureQuantifierForId is the upstream spelling of CaptureQuantifierForID.
-func (q *Query) CaptureQuantifierForId(pattern, capture uint32) CaptureQuantifier {
-	return q.CaptureQuantifierForID(pattern, capture)
-}
-
 // StringValue returns a string-table entry by id, or an empty string when the
 // id is unavailable.
 func (q *Query) StringValue(id uint32) string {
@@ -643,12 +511,6 @@ func (q *Query) StringValueE(id uint32) (string, error) {
 		[]string{"tsw_query_string_value_ptr", "tsw_query_string_value", "wasitter_query_string_value", "ts_query_string_value_for_id", "query_string_value"},
 		[]string{"tsw_query_string_value_len", "wasitter_query_string_value_len", "ts_query_string_value_len", "query_string_value_len"})
 }
-
-// StringValueForId is the spelling used by the upstream Go binding.
-func (q *Query) StringValueForId(id uint32) string { return q.StringValue(id) }
-
-// StringValueForID is an initialism-friendly alias.
-func (q *Query) StringValueForID(id uint32) string { return q.StringValue(id) }
 
 // StartByteForPattern returns the source byte offset where pattern begins.
 func (q *Query) StartByteForPattern(pattern uint32) uint32 {
@@ -891,7 +753,6 @@ func (q *Query) PredicateSteps(pattern uint32) ([]QueryPredicateStep, error) {
 		steps = append(steps, QueryPredicateStep{
 			Type:    QueryPredicateStepType(binary.LittleEndian.Uint32(b[off : off+4])),
 			ValueID: valueID,
-			ValueId: valueID,
 		})
 	}
 	return steps, nil
@@ -1086,13 +947,6 @@ func cloneTextPredicates(in []TextPredicateCapture) []TextPredicateCapture {
 	out := make([]TextPredicateCapture, len(in))
 	copy(out, in)
 	for i := range out {
-		if in[i].CaptureID != 0 || in[i].CaptureId == 0 {
-			out[i].CaptureID = in[i].CaptureID
-			out[i].CaptureId = uint(in[i].CaptureID)
-		} else {
-			out[i].CaptureId = in[i].CaptureId
-			out[i].CaptureID = uint32(in[i].CaptureId)
-		}
 		if values, ok := out[i].Value.([]string); ok {
 			// Preserve the distinction between a nil value (which denotes an
 			// unavailable/malformed predicate payload) and an explicitly empty
@@ -1122,19 +976,8 @@ func cloneQueryProperties(in []QueryProperty) []QueryProperty {
 			value := *property.Value
 			out[i].Value = &value
 		}
-		// Keep the two public spellings synchronized, preferring the
-		// wasm-width field when both are present.  Values built by older
-		// callers may populate only CaptureId, so normalize that direction
-		// too.
 		if property.CaptureID != nil {
 			id := *property.CaptureID
-			out[i].CaptureID = &id
-			uid := uint(id)
-			out[i].CaptureId = &uid
-		} else if property.CaptureId != nil {
-			uid := *property.CaptureId
-			out[i].CaptureId = &uid
-			id := uint32(uid)
 			out[i].CaptureID = &id
 		}
 	}
@@ -1167,13 +1010,6 @@ func cloneGeneralPredicates(in []QueryPredicate) []QueryPredicate {
 			if arg.CaptureID != nil {
 				id := *arg.CaptureID
 				out[i].Args[j].CaptureID = &id
-				uid := uint(id)
-				out[i].Args[j].CaptureId = &uid
-			} else if arg.CaptureId != nil {
-				uid := *arg.CaptureId
-				out[i].Args[j].CaptureId = &uid
-				id := uint32(uid)
-				out[i].Args[j].CaptureID = &id
 			}
 			if arg.String != nil {
 				value := *arg.String
@@ -1184,30 +1020,15 @@ func cloneGeneralPredicates(in []QueryPredicate) []QueryPredicate {
 	return out
 }
 
-// NewQueryProperty constructs a property value for use with query metadata.
-// captureID accepts either *uint32 (the WASM-width form) or *uint (the
-// upstream Go binding form); nil denotes a property that is not tied to a
-// capture.
-func NewQueryProperty(key string, value *string, captureID any) QueryProperty {
+// NewQueryProperty constructs query metadata. A nil captureID denotes a
+// property not tied to a capture. It copies captureID when provided.
+func NewQueryProperty(key string, value *string, captureID *uint32) QueryProperty {
 	property := QueryProperty{Key: key, Value: value}
-	switch id := captureID.(type) {
-	case *uint32:
-		if id != nil {
-			copyID := *id
-			property.CaptureID = &copyID
-			uid := uint(copyID)
-			property.CaptureId = &uid
-		}
-	case *uint:
-		if id != nil {
-			uid := *id
-			property.CaptureId = &uid
-			copyID := uint32(uid)
-			property.CaptureID = &copyID
-		}
-	case nil:
-		// Leave both fields nil.
+	if captureID != nil {
+		copyID := *captureID
+		property.CaptureID = &copyID
 	}
+
 	return property
 }
 
@@ -1489,7 +1310,7 @@ func (q *Query) predicateValidationError(pattern uint32, message string) error {
 	// callers that compare *QueryError values across native and WASM builds.
 	offset := q.StartByteForPattern(pattern)
 	row, _ := sourcePosition(q.source, offset)
-	return &QueryError{Message: message, Row: row, Column: 0, Offset: 0, Kind: QueryErrorPredicate, Type: QueryErrorPredicate}
+	return &QueryError{Message: message, Row: row, Column: 0, Offset: 0, Kind: QueryErrorPredicate}
 }
 
 func (q *Query) describePredicateStep(step QueryPredicateStep) string {
@@ -1567,7 +1388,7 @@ func (q *Query) publicTextPredicatesFromPrivate(predicates []textPredicate) []Te
 			continue
 		}
 		positive, matchAll := predicateSemantics(p.op)
-		entry := TextPredicateCapture{CaptureID: captureID, CaptureId: uint(captureID), Positive: positive, MatchAllNodes: matchAll}
+		entry := TextPredicateCapture{CaptureID: captureID, Positive: positive, MatchAllNodes: matchAll}
 		switch p.op {
 		case "eq?", "not-eq?", "any-eq?", "any-not-eq?":
 			if p.otherCapture != "" {
@@ -1576,7 +1397,7 @@ func (q *Query) publicTextPredicatesFromPrivate(predicates []textPredicate) []Te
 					continue
 				}
 				// go-tree-sitter exposes capture references in the predicate
-				// value as uint (the same width as CaptureId). Keep that public
+				// value as uint. Keep that public
 				// shape even though the wire ABI itself is uint32-wide.
 				entry.Type, entry.Value = TextPredicateTypeEqCapture, uint(id)
 			} else {
@@ -1641,7 +1462,7 @@ func (q *Query) publicPredicatesFromSteps(steps []QueryPredicateStep) (text []Te
 				continue
 			}
 			positive, matchAll := predicateSemantics(op)
-			entry := TextPredicateCapture{CaptureID: part[1].ValueID, CaptureId: uint(part[1].ValueID), Positive: positive, MatchAllNodes: matchAll}
+			entry := TextPredicateCapture{CaptureID: part[1].ValueID, Positive: positive, MatchAllNodes: matchAll}
 			switch op {
 			case "eq?", "not-eq?", "any-eq?", "any-not-eq?":
 				if len(part) != 3 {
@@ -1703,8 +1524,7 @@ func (q *Query) publicPredicatesFromSteps(steps []QueryPredicateStep) (text []Te
 			switch step.Type {
 			case QueryPredicateStepCapture:
 				id := step.ValueID
-				uid := uint(id)
-				args = append(args, QueryPredicateArg{CaptureID: &id, CaptureId: &uid})
+				args = append(args, QueryPredicateArg{CaptureID: &id})
 			case QueryPredicateStepString:
 				value := q.StringValue(step.ValueID)
 				args = append(args, QueryPredicateArg{String: &value})
@@ -1729,8 +1549,6 @@ func (q *Query) publicPropertyFromSteps(steps []QueryPredicateStep) (QueryProper
 			}
 			id := step.ValueID
 			property.CaptureID = &id
-			uid := uint(id)
-			property.CaptureId = &uid
 		case QueryPredicateStepString:
 			value := q.StringValue(step.ValueID)
 			if !keySet {
@@ -1791,13 +1609,6 @@ type QueryCapture struct {
 	stream       *queryIteratorStream
 }
 
-// Id returns the match id using the spelling used by the upstream binding.
-// Id returns the match identifier using the historical upstream spelling.
-func (m QueryMatch) Id() uint { return uint(m.ID) }
-
-// IDValue is an initialism-friendly alias for Id.
-func (m QueryMatch) IDValue() uint32 { return m.ID }
-
 // NodesForCaptureIndex returns all nodes in this match having captureIndex.
 func (m QueryMatch) NodesForCaptureIndex(captureIndex uint) []Node {
 	result := make([]Node, 0)
@@ -1846,16 +1657,12 @@ func (m QueryMatch) SatisfiesTextPredicate(query *Query, buffer1, buffer2, text 
 	return query.satisfies(m)
 }
 
-// Matches executes the query below root.
-//
-// The value-oriented API accepts a Node, while callers migrating from the
-// upstream Go binding commonly hold a *Node.  Keep this entry point flexible
-// at the boundary (the same way QueryCursor.Exec is) so either representation
-// can be passed without an adapter. Invalid or nil node values produce an
-// empty result, matching the historical no-error convenience method.
-func (q *Query) Matches(rootArg any) []QueryMatch {
-	root, ok := nodeValueArg(rootArg)
-	if q == nil || q.closed.Load() || !ok || root.IsNull() {
+// Matches returns all matches below root using the tree's retained source.
+// It returns nil on execution failure. Use [QueryCursor.Matches] when errors
+// must be distinguished from an empty result. Returned nodes belong to root's
+// tree and must not be used after that tree is closed.
+func (q *Query) Matches(root Node) []QueryMatch {
+	if q == nil || q.closed.Load() || root.IsNull() {
 		return nil
 	}
 	if q.native {
@@ -1904,13 +1711,6 @@ func (q *Query) Matches(rootArg any) []QueryMatch {
 		}
 	}
 	return filtered
-}
-
-// MatchesPtr is the explicit pointer-shaped counterpart of Matches. It is
-// useful when a caller wants a compile-time method signature while adapting
-// code written against go-tree-sitter's *Node API.
-func (q *Query) MatchesPtr(root *Node) []QueryMatch {
-	return q.Matches(root)
 }
 
 func (q *Query) matchesFallback(root Node) []QueryMatch {
@@ -2134,7 +1934,7 @@ func newQueryError(source string, offset, rawKind uint32, guestMessage string) e
 	row, column := sourcePosition(source, offset)
 	kind := queryErrorKindFromRaw(rawKind)
 	message := queryErrorDetail(source, offset, kind, guestMessage)
-	return &QueryError{Message: message, Offset: offset, Row: row, Column: column, Kind: kind, Type: QueryErrorType(kind)}
+	return &QueryError{Message: message, Offset: offset, Row: row, Column: column, Kind: kind}
 }
 
 // queryErrorDetail reconstructs the source-oriented diagnostics emitted by
@@ -2300,7 +2100,7 @@ func parseFallbackPatterns(source string) ([]fallbackPattern, error) {
 		return nil, err
 	}
 	if len(patterns) == 0 {
-		return nil, &QueryError{Message: "expected a parenthesized node pattern", Kind: QueryErrorSyntax, Type: QueryErrorSyntax}
+		return nil, &QueryError{Message: "expected a parenthesized node pattern", Kind: QueryErrorSyntax}
 	}
 	_ = next
 	return patterns, nil
@@ -2420,7 +2220,6 @@ func validateFallbackNodeTypes(language *Language, source string, patterns []fal
 			Row:     row,
 			Column:  column,
 			Kind:    QueryErrorNodeType,
-			Type:    QueryErrorNodeType,
 		}
 	}
 	return nil
@@ -2568,7 +2367,6 @@ func validateFallbackFields(language *Language, source string) error {
 			Row:     row,
 			Column:  column,
 			Kind:    QueryErrorField,
-			Type:    QueryErrorField,
 		}
 	}
 	return nil
@@ -3238,7 +3036,7 @@ func fallbackSyntaxError(source string, offset int) *QueryError {
 	if line != "" {
 		message = line + "\n" + strings.Repeat(" ", offset-lineStart) + "^"
 	}
-	return &QueryError{Message: message, Offset: uint32(offset), Row: row, Column: column, Kind: QueryErrorSyntax, Type: QueryErrorSyntax}
+	return &QueryError{Message: message, Offset: uint32(offset), Row: row, Column: column, Kind: QueryErrorSyntax}
 }
 
 // parseTextPredicates extracts the built-in predicates whose evaluation needs
@@ -3485,9 +3283,7 @@ func fallbackPropertyFromTokens(tokens []fallbackPredicateToken, captureIDs map[
 				return QueryProperty{}, false
 			}
 			copyID := id
-			uid := uint(id)
 			property.CaptureID = &copyID
-			property.CaptureId = &uid
 			continue
 		}
 		if !token.quoted {
@@ -3546,8 +3342,7 @@ func fallbackMetadataFromSource(source string, captureNames []string) (text []Te
 						continue
 					}
 					copyID := id
-					uid := uint(id)
-					args = append(args, QueryPredicateArg{CaptureID: &copyID, CaptureId: &uid})
+					args = append(args, QueryPredicateArg{CaptureID: &copyID})
 				} else if token.quoted {
 					value := token.text
 					args = append(args, QueryPredicateArg{String: &value})
@@ -3642,7 +3437,7 @@ func fallbackPredicateError(source string, offset int, message string) error {
 	row, _ := sourcePosition(source, uint32(offset))
 	// Match validateNativePredicates: predicate diagnostics carry the pattern
 	// row but intentionally leave byte offset/column at zero.
-	return &QueryError{Message: message, Row: row, Column: 0, Offset: 0, Kind: QueryErrorPredicate, Type: QueryErrorPredicate}
+	return &QueryError{Message: message, Row: row, Column: 0, Offset: 0, Kind: QueryErrorPredicate}
 }
 
 func fallbackPredicateTokenDescription(token fallbackPredicateToken) string {
@@ -3668,7 +3463,7 @@ func validateFallbackPredicate(source string, offset, tokenBase int, operator st
 					captureOffset = len(source)
 				}
 				row, column := sourcePosition(source, uint32(captureOffset))
-				return &QueryError{Message: token.text, Row: row, Column: column, Offset: uint32(captureOffset), Kind: QueryErrorCapture, Type: QueryErrorCapture}
+				return &QueryError{Message: token.text, Row: row, Column: column, Offset: uint32(captureOffset), Kind: QueryErrorCapture}
 			}
 		}
 	}
@@ -4574,20 +4369,16 @@ func (c *QueryCursor) releaseTreeLifeLocked() {
 	unlock()
 }
 
-// Exec starts a query-cursor execution at node. The value-oriented API accepts
-// both Node and *Node so code written against either the original wasitter
-// binding or the upstream go-tree-sitter binding can share the same call site.
-// A nil *Node is treated as an invalid/null node and returns ErrInvalidHandle.
-func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
+// Exec starts query at node. Consume the results with
+// [QueryCursor.NextMatch] or [QueryCursor.NextCapture], or use
+// [QueryCursor.Matches] to collect results in one call. Query and node must
+// belong to the same runtime. Close the cursor before the tree and query.
+func (c *QueryCursor) Exec(query *Query, node Node) error {
 	if c == nil || c.closed.Load() {
 		return ErrClosed
 	}
 	if query == nil {
 		return ErrUnsupported
-	}
-	node, nodeOK := nodeValueArg(nodeArg)
-	if !nodeOK {
-		return fmt.Errorf("wasitter: query cursor node must be Node or *Node, got %T", nodeArg)
 	}
 	if err := query.ensureOpen(); err != nil {
 		return err
@@ -5080,17 +4871,14 @@ func nodeDepthFromRoot(node, root Node) (uint32, bool) {
 	return 0, false
 }
 
-// SetByteRange accepts both the wasm-width uint32 form used by the original
-// API and Go's native uint form used by upstream tree-sitter bindings.
-func (c *QueryCursor) SetByteRange(start, end any) *QueryCursor {
+// SetByteRange restricts matches to those intersecting the UTF-8 byte
+// range [start, end). An end of zero means no upper bound. Invalid ranges are
+// ignored; use [QueryCursor.SetByteRangeE] to report errors.
+func (c *QueryCursor) SetByteRange(start, end uint32) *QueryCursor {
 	if c == nil || c.closed.Load() {
 		return c
 	}
-	start32, okStart := queryUint32Value(start)
-	end32, okEnd := queryUint32Value(end)
-	if !okStart || !okEnd {
-		return c
-	}
+	start32, end32 := start, end
 	// Tree-sitter reserves an end byte of zero for an unbounded range. Normalize
 	// it in the host state before validating the ordering; otherwise a perfectly
 	// valid range such as (12, 0) is incorrectly rejected as reversed.
@@ -5113,16 +4901,15 @@ func (c *QueryCursor) SetByteRange(start, end any) *QueryCursor {
 // SetByteRangeE applies a byte range to the cursor and reports conversion or
 // guest ABI errors. The end value of zero retains Tree-sitter's unbounded-end
 // sentinel semantics.
-func (c *QueryCursor) SetByteRangeE(start, end any) error {
+func (c *QueryCursor) SetByteRangeE(start, end uint32) error {
 	if c == nil || c.closed.Load() {
 		return ErrClosed
 	}
-	start32, okStart := queryUint32Value(start)
-	end32, okEnd := queryUint32Value(end)
-	if end32 == 0 && okEnd {
+	start32, end32 := start, end
+	if end32 == 0 {
 		end32 = ^uint32(0)
 	}
-	if !okStart || !okEnd || start32 > end32 {
+	if start32 > end32 {
 		return fmt.Errorf("wasitter: invalid byte range")
 	}
 	c.mu.Lock()
@@ -5205,16 +4992,14 @@ func (c *QueryCursor) SetPointRangeE(start, end Point) error {
 	return nil
 }
 
-// SetMatchLimit accepts both uint32 (the WASM wire width) and uint (the
-// upstream Go binding's width).
-func (c *QueryCursor) SetMatchLimit(limit any) *QueryCursor {
+// SetMatchLimit sets the maximum number of in-progress matches. Use
+// [QueryCursor.DidExceedMatchLimit] to detect whether execution reached it.
+// Use [QueryCursor.SetMatchLimitE] to report guest ABI errors.
+func (c *QueryCursor) SetMatchLimit(limit uint32) *QueryCursor {
 	if c == nil || c.closed.Load() {
 		return c
 	}
-	limit32, ok := queryUint32Value(limit)
-	if !ok {
-		return c
-	}
+	limit32 := limit
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed.Load() {
@@ -5228,14 +5013,11 @@ func (c *QueryCursor) SetMatchLimit(limit any) *QueryCursor {
 }
 
 // SetMatchLimitE is the error-reporting counterpart of SetMatchLimit.
-func (c *QueryCursor) SetMatchLimitE(limit any) error {
+func (c *QueryCursor) SetMatchLimitE(limit uint32) error {
 	if c == nil || c.closed.Load() {
 		return ErrClosed
 	}
-	limit32, ok := queryUint32Value(limit)
-	if !ok {
-		return fmt.Errorf("wasitter: invalid match limit")
-	}
+	limit32 := limit
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed.Load() {
@@ -5331,18 +5113,14 @@ func (c *QueryCursor) TimeoutMicros() uint64 {
 	return c.timeoutMicros
 }
 
-// SetMaxStartDepth sets the maximum depth at which a query may start.  The
-// upstream Go binding accepts *uint (with nil clearing the limit), while the
-// original wasitter API accepted uint32.  Accept the common fixed-width and
-// native-width forms through any so both call styles remain source-compatible.
-func (c *QueryCursor) SetMaxStartDepth(depth any) *QueryCursor {
+// SetMaxStartDepth limits the depth at which a query pattern can start.
+// Zero restricts starts to the execution root. Use [QueryCursor.ClearMaxStartDepth]
+// to remove the limit.
+func (c *QueryCursor) SetMaxStartDepth(depth uint32) *QueryCursor {
 	if c == nil || c.closed.Load() {
 		return c
 	}
-	value, ok := queryMaxStartDepthValue(depth)
-	if !ok {
-		return c
-	}
+	value := depth
 	c.mu.Lock()
 	if c.closed.Load() {
 		c.mu.Unlock()
@@ -5354,77 +5132,6 @@ func (c *QueryCursor) SetMaxStartDepth(depth any) *QueryCursor {
 	}
 	c.mu.Unlock()
 	return c
-}
-
-func queryMaxStartDepthValue(depth any) (uint32, bool) {
-	switch value := depth.(type) {
-	case nil:
-		return ^uint32(0), true
-	case uint32:
-		return value, true
-	case uint:
-		if uint64(value) > uint64(^uint32(0)) {
-			return ^uint32(0), true
-		}
-		return uint32(value), true
-	case uint64:
-		if value > uint64(^uint32(0)) {
-			return ^uint32(0), true
-		}
-		return uint32(value), true
-	case uint16:
-		return uint32(value), true
-	case uint8:
-		return uint32(value), true
-	case int:
-		if value < 0 {
-			return 0, false
-		}
-		return queryMaxStartDepthValue(uint64(value))
-	case int8:
-		if value < 0 {
-			return 0, false
-		}
-		return uint32(value), true
-	case int16:
-		if value < 0 {
-			return 0, false
-		}
-		return uint32(value), true
-	case int32:
-		if value < 0 {
-			return 0, false
-		}
-		return uint32(value), true
-	case int64:
-		if value < 0 {
-			return 0, false
-		}
-		return queryMaxStartDepthValue(uint64(value))
-	case *uint:
-		if value == nil {
-			return ^uint32(0), true
-		}
-		return queryMaxStartDepthValue(*value)
-	case *uint32:
-		if value == nil {
-			return ^uint32(0), true
-		}
-		return *value, true
-	case *uint64:
-		if value == nil {
-			return ^uint32(0), true
-		}
-		return queryMaxStartDepthValue(*value)
-	default:
-		return 0, false
-	}
-}
-
-// SetMaxStartDepthPtr is the pointer-taking counterpart of SetMaxStartDepth.
-// Passing nil removes the depth limit, matching Tree-sitter's upstream API.
-func (c *QueryCursor) SetMaxStartDepthPtr(depth any) *QueryCursor {
-	return c.SetMaxStartDepth(depth)
 }
 
 // ClearMaxStartDepth removes any previously configured maximum start depth.
@@ -6269,40 +5976,6 @@ func (c *QueryCursor) nextPredicateCaptureNativeLocked() (QueryCapture, bool) {
 			return QueryCapture{}, false
 		}
 	}
-}
-
-// matchesSnapshot returns the matches that have already been materialized by
-// a compatibility cursor.  The public Matches method is implemented in
-// query_iter.go as a variadic API so it can also accept the upstream
-// (query, node, text) arguments.
-func (c *QueryCursor) matchesSnapshot() []QueryMatch {
-	if c == nil || c.closed.Load() {
-		return nil
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	// Compatibility cursors materialize candidates before iteration.  A plain
-	// no-argument Matches call historically snapshots that slice, but returning
-	// it verbatim would bypass built-in predicate/range filtering that NextMatch
-	// applies. Filter the snapshot while retaining its non-consuming behavior.
-	result := make([]QueryMatch, 0, len(c.matches))
-	for _, match := range c.matches {
-		if _, removed := c.removedMatches[match.ID]; removed {
-			continue
-		}
-		if !c.fallbackMatchAllowedLocked(match) {
-			continue
-		}
-		if c.query != nil && !c.satisfiesQueryMatchLocked(c.query, match) {
-			continue
-		}
-		match.cursor = c
-		if match.root.IsNull() {
-			match.root = c.root
-		}
-		result = append(result, match)
-	}
-	return result
 }
 
 // Close releases the guest cursor handle and any retained execution state. It

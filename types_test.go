@@ -28,31 +28,15 @@ func TestPointAndRangeUseUTF8ByteCoordinates(t *testing.T) {
 	}
 }
 
-func TestEditIsInputEditAlias(t *testing.T) {
-	var edit Edit = InputEdit{
-		StartByte:   2,
-		OldEndByte:  4,
-		NewEndByte:  6,
-		StartPoint:  Point{Row: 1, Column: 2},
-		OldEndPoint: Point{Row: 1, Column: 4},
-		NewEndPoint: Point{Row: 1, Column: 6},
-	}
-	var input InputEdit = edit
-	if input.StartByte != 2 || input.OldEndByte != 4 || input.NewEndByte != 6 {
-		t.Fatalf("Edit and InputEdit do not preserve fields: %#v", input)
-	}
-}
-
-func TestInputEditPositionAliasesEncode(t *testing.T) {
-	// Upstream callers use the *Position field names.  Verify that the aliases
-	// reach the exact TSInputEdit wire slots used by Tree.Edit/Node.Edit.
+func TestInputEditCoordinatesEncode(t *testing.T) {
+	// Verify the exact TSInputEdit wire slots used by Tree.Edit and Node.Edit.
 	edit := InputEdit{
-		StartByte:      7,
-		OldEndByte:     9,
-		NewEndByte:     11,
-		StartPosition:  Point{Row: 2, Column: 3},
-		OldEndPosition: Point{Row: 2, Column: 5},
-		NewEndPosition: Point{Row: 2, Column: 7},
+		StartByte:   7,
+		OldEndByte:  9,
+		NewEndByte:  11,
+		StartPoint:  Point{Row: 2, Column: 3},
+		OldEndPoint: Point{Row: 2, Column: 5},
+		NewEndPoint: Point{Row: 2, Column: 7},
 	}
 	encoded := encodeInputEdit(edit)
 	if len(encoded) != 36 {
@@ -65,19 +49,6 @@ func TestInputEditPositionAliasesEncode(t *testing.T) {
 		}
 	}
 
-	// Explicit Point fields remain authoritative when both spellings are
-	// supplied, which makes conflicting compatibility literals deterministic.
-	canonical := edit
-	canonical.StartPoint = Point{Row: 8, Column: 9}
-	canonical.OldEndPoint = Point{Row: 8, Column: 10}
-	canonical.NewEndPoint = Point{Row: 8, Column: 12}
-	encoded = encodeInputEdit(canonical)
-	if got := binary.LittleEndian.Uint32(encoded[12:]); got != 8 {
-		t.Errorf("canonical start row = %d, want 8", got)
-	}
-	if got := binary.LittleEndian.Uint32(encoded[16:]); got != 9 {
-		t.Errorf("canonical start column = %d, want 9", got)
-	}
 }
 
 func TestLogTypeValuesAreStable(t *testing.T) {

@@ -18,11 +18,11 @@ func TestNilLanguageConvenienceAccessorsDoNotPanic(t *testing.T) {
 	if got := language.FieldNameForID(0); got != "" {
 		t.Errorf("nil FieldNameForID = %q, want empty", got)
 	}
-	if got := language.FieldName(0); got != "" {
+	if got := language.FieldNameForID(0); got != "" {
 		t.Errorf("nil FieldName = %q, want empty", got)
 	}
-	if got := language.NodeKindForId(0); got != "" {
-		t.Errorf("nil NodeKindForId = %q, want empty", got)
+	if got := language.NodeKindForID(0); got != "" {
+		t.Errorf("nil NodeKindForID = %q, want empty", got)
 	}
 	if got := language.NodeKindForID(0); got != "" {
 		t.Errorf("nil NodeKindForID = %q, want empty", got)

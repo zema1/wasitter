@@ -269,7 +269,7 @@ func TestQueryParity(t *testing.T) {
 			t.Cleanup(func() { _ = wasmCursor.Close() })
 			nativeCursor := native.NewQueryCursor()
 			t.Cleanup(nativeCursor.Close)
-			wasmMatches := wasmMatchViews(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), source), source)
+			wasmMatches := wasmMatchViews(mustQueryResult(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), source)), source)
 			nativeMatches := nativeMatchViews(nativeCursor.Matches(nativeQuery, nativeTree.RootNode(), source), source)
 			if !reflect.DeepEqual(wasmMatches, nativeMatches) {
 				t.Fatalf("matches differ:\nWASM:   %#v\nNative: %#v", wasmMatches, nativeMatches)
@@ -291,14 +291,14 @@ type cursorView struct {
 func wasmCursorTrace(cursor *wasm.TreeCursor) []cursorView {
 	var out []cursorView
 	for {
-		node := cursor.Node()
+		node := cursor.CurrentNode()
 		out = append(out, cursorView{
 			Type:      node.Type(),
 			StartByte: node.StartByte(),
 			EndByte:   node.EndByte(),
-			Field:     cursor.FieldName(),
-			FieldID:   cursor.FieldID(),
-			Depth:     cursor.Depth(),
+			Field:     cursor.CurrentFieldName(),
+			FieldID:   cursor.CurrentFieldID(),
+			Depth:     uint32(cursor.CurrentDepth()),
 			Index:     cursor.DescendantIndex(),
 		})
 		if cursor.GotoFirstChild() {
@@ -382,7 +382,7 @@ func TestCursorParity(t *testing.T) {
 		if wasmIndex != nil && uint32(*wasmIndex) != uint32(*nativeIndex) {
 			t.Fatalf("byte %d child index = %d, want %d", offset, *wasmIndex, *nativeIndex)
 		}
-		if got, want := wasmCursor.Node().Type(), nativeCursor.Node().Kind(); got != want {
+		if got, want := wasmCursor.CurrentNode().Type(), nativeCursor.Node().Kind(); got != want {
 			t.Fatalf("byte %d child node = %q, want %q", offset, got, want)
 		}
 	}
@@ -415,7 +415,7 @@ func TestCursorParity(t *testing.T) {
 		if wasmIndex != nil && uint32(*wasmIndex) != uint32(*nativeIndex) {
 			t.Fatalf("point (%d,%d) child index = %d, want %d", point.Row, point.Column, *wasmIndex, *nativeIndex)
 		}
-		if got, want := wasmCursor.Node().Type(), nativeCursor.Node().Kind(); got != want {
+		if got, want := wasmCursor.CurrentNode().Type(), nativeCursor.Node().Kind(); got != want {
 			t.Fatalf("point (%d,%d) child node = %q, want %q", point.Row, point.Column, got, want)
 		}
 	}

@@ -31,6 +31,17 @@ its original notice is preserved in
 `src/wasitter_abi.c` and `include/wasitter_abi.h` are original shim code
 for this project and are MIT licensed with the rest of the repository.
 
+## Release grammar assets
+
+Releases provide every grammar in the pinned registry (Bash, C, C++, Go, Java,
+JavaScript, JSON, Python, Ruby, Rust, TSX, and TypeScript) as individual WASM
+files. Each includes the runtime and toolchain code described here. Exact
+versions and source archive digests are attached as `grammar-registry.json`.
+License files are copied from verified grammar archives into the build staging
+area, preserving nested dependency notices. Release preparation combines those
+texts with the project, runtime, and toolchain licenses in the standalone
+`THIRD_PARTY_NOTICES.txt` attachment. Keep it when redistributing WASM files.
+
 ## Embedded WASM toolchain code
 
 The checked-in `assets/wasitter-*.wasm` artifacts are produced with Zig

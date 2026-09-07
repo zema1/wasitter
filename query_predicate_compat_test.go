@@ -40,7 +40,7 @@ func TestAnyTextPredicatesMatchOfficialBinding(t *testing.T) {
 	}
 }
 
-func TestQueryMetadataPopulatesCaptureIdAliases(t *testing.T) {
+func TestQueryMetadataIdentifiesCapture(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1]`)
 	defer tree.Close()
 	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
@@ -52,8 +52,8 @@ func TestQueryMetadataPopulatesCaptureIdAliases(t *testing.T) {
 		t.Fatalf("TextPredicates = %#v", q.TextPredicates)
 	}
 	pred := q.TextPredicates[0][0]
-	if pred.CaptureID != uint32(pred.CaptureId) {
-		t.Fatalf("capture aliases disagree: %d/%d", pred.CaptureID, pred.CaptureId)
+	if q.CaptureName(pred.CaptureID) != "n" {
+		t.Fatalf("unexpected capture ID: %d", pred.CaptureID)
 	}
 	if len(q.GeneralPredicates(0)) != 0 {
 		t.Fatalf("unexpected general predicates: %#v", q.GeneralPredicates(0))
@@ -244,7 +244,7 @@ func TestQueryIteratorUsesExplicitTextBufferForPredicates(t *testing.T) {
 	// text, so replacing the retained source (`[1]`) with (`[2]`) must make the
 	// query match.
 	text := []byte(`[2]`)
-	matches := c.Matches(q, tree.RootNode(), text)
+	matches := mustQueryResult(c.Matches(q, tree.RootNode(), text))
 	if len(matches) != 1 || len(matches[0].Captures) != 1 {
 		t.Fatalf("Matches with explicit text = %#v, want one capture", matches)
 	}
@@ -252,7 +252,7 @@ func TestQueryIteratorUsesExplicitTextBufferForPredicates(t *testing.T) {
 		t.Fatalf("retained node text = %q, want tree text 1", got)
 	}
 
-	captures := c.Captures(q, tree.RootNode(), text)
+	captures := mustQueryResult(c.Captures(q, tree.RootNode(), text))
 	if len(captures) != 1 {
 		t.Fatalf("Captures with explicit text = %#v, want one capture", captures)
 	}

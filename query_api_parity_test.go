@@ -50,7 +50,7 @@ func TestQueryPredicatesForPatternOmitsDoneSeparators(t *testing.T) {
 			t.Fatalf("predicate group %d is empty", i)
 		}
 		for _, step := range group {
-			if step.Type == wasitter.QueryPredicateStepTypeDone {
+			if step.Type == wasitter.QueryPredicateStepDone {
 				t.Fatalf("group %d contains Done separator: %#v", i, group)
 			}
 		}
@@ -59,12 +59,12 @@ func TestQueryPredicatesForPatternOmitsDoneSeparators(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(flat) == 0 || flat[len(flat)-1].Type != wasitter.QueryPredicateStepTypeDone {
+	if len(flat) == 0 || flat[len(flat)-1].Type != wasitter.QueryPredicateStepDone {
 		t.Fatalf("flat predicate steps = %#v, want trailing Done", flat)
 	}
 }
 
-func TestQueryErrorKindAndTypeCompatibility(t *testing.T) {
+func TestQueryErrorKinds(t *testing.T) {
 	// Keep the public numbering aligned with go-tree-sitter v0.25. The C
 	// enum uses a separate zero-valued TSQueryErrorNone sentinel; conversion
 	// is tested below through a real malformed query.
@@ -81,15 +81,12 @@ func TestQueryErrorKindAndTypeCompatibility(t *testing.T) {
 		if int(kind) != i {
 			t.Fatalf("QueryError kind %d = %d, want %d", i, kind, i)
 		}
-		if got := wasitter.QueryErrorTypeToString(kind); got == "unknown" || got == "" {
-			t.Fatalf("QueryErrorTypeToString(%d) = %q", kind, got)
+		if got := wasitter.QueryErrorKindToString(kind); got == "unknown" || got == "" {
+			t.Fatalf("QueryErrorKindToString(%d) = %q", kind, got)
 		}
 	}
-	if got := wasitter.QueryErrorTypeToString(wasitter.QueryErrorNone); got != "none" {
-		t.Fatalf("QueryErrorTypeToString(QueryErrorNone) = %q, want none", got)
-	}
-	if wasitter.QueryErrorType(wasitter.QueryErrorPredicate) != wasitter.QueryErrorPredicate {
-		t.Fatal("QueryErrorType is not an alias for QueryErrorKind")
+	if got := wasitter.QueryErrorKindToString(wasitter.QueryErrorNone); got != "none" {
+		t.Fatalf("QueryErrorKindToString(QueryErrorNone) = %q, want none", got)
 	}
 
 	p, _ := newJSONParser(t)
@@ -102,68 +99,17 @@ func TestQueryErrorKindAndTypeCompatibility(t *testing.T) {
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("error = %v, want *QueryError", err)
 	}
-	if queryErr.Kind != wasitter.QueryErrorNodeType || queryErr.Type != wasitter.QueryErrorType(queryErr.Kind) {
-		t.Fatalf("error kind/type = %d/%d, want node type and matching alias", queryErr.Kind, queryErr.Type)
+	if queryErr.Kind != wasitter.QueryErrorNodeType {
+		t.Fatalf("error kind = %d, want node type", queryErr.Kind)
 	}
 }
 
-func TestNewQueryAcceptsCurrentAndHistoricalArgumentOrders(t *testing.T) {
-	p, _ := newJSONParser(t)
-	defer p.Close()
-	lang := p.Language()
-	forms := []struct {
-		name string
-		make func() (*wasitter.Query, error)
-	}{
-		{name: "language-string", make: func() (*wasitter.Query, error) {
-			return wasitter.NewQuery(lang, `(number) @n`)
-		}},
-		{name: "language-bytes", make: func() (*wasitter.Query, error) {
-			return wasitter.NewQuery(lang, []byte(`(number) @n`))
-		}},
-		{name: "bytes-language", make: func() (*wasitter.Query, error) {
-			return wasitter.NewQuery([]byte(`(number) @n`), lang)
-		}},
-		{name: "string-language", make: func() (*wasitter.Query, error) {
-			return wasitter.NewQuery(`(number) @n`, lang)
-		}},
-	}
-	for _, tc := range forms {
-		t.Run(tc.name, func(t *testing.T) {
-			q, err := tc.make()
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer q.Close()
-			if q.PatternCount() != 1 || q.CaptureName(0) != "n" {
-				t.Fatalf("query metadata = patterns=%d capture=%q", q.PatternCount(), q.CaptureName(0))
-			}
-		})
-	}
-	q, err := wasitter.CompileQuery([]byte(`(number) @n`), lang)
-	if err != nil {
-		t.Fatalf("CompileQuery reversed form: %v", err)
-	}
-	q.Close()
-}
-
-func TestNewQueryRejectsUnsupportedArgumentPair(t *testing.T) {
-	p, _ := newJSONParser(t)
-	defer p.Close()
-	if q, err := wasitter.NewQuery(42, p.Language()); q != nil || !errors.Is(err, wasitter.ErrUnsupported) {
-		t.Fatalf("unsupported first argument returned query=%v err=%v", q, err)
-	}
-	if q, err := wasitter.NewQuery([]byte(`(number)`), nil); q != nil || !errors.Is(err, wasitter.ErrNoLanguage) {
-		t.Fatalf("nil language returned query=%v err=%v", q, err)
-	}
-}
-
-func TestQueryErrorUsesHistoricalTypeWhenKindUnset(t *testing.T) {
-	err := wasitter.QueryError{Type: wasitter.QueryErrorField, Message: "name", Row: 0, Column: 1}
+func TestQueryErrorFormatsFieldError(t *testing.T) {
+	err := wasitter.QueryError{Kind: wasitter.QueryErrorField, Message: "name", Row: 0, Column: 1}
 	got := err.Error()
 	want := "Query error at 1:2. Invalid field name name"
 	if got != want {
-		t.Fatalf("Type-only QueryError.Error() = %q, want %q", got, want)
+		t.Fatalf("QueryError.Error() = %q, want %q", got, want)
 	}
 }
 
@@ -468,7 +414,7 @@ func TestQueryMatchRemovalAndCaptureHelpers(t *testing.T) {
 		t.Fatal("missing first match")
 	}
 	if len(first.NodesForCaptureIndex(0)) != 1 {
-		t.Fatalf("first match id/captures = %d/%#v", first.Id(), first.Captures)
+		t.Fatalf("first match id/captures = %d/%#v", first.ID, first.Captures)
 	}
 	if err := first.RemoveE(); err != nil {
 		t.Fatalf("RemoveE: %v", err)

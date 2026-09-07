@@ -129,8 +129,8 @@ func TestLanguageAliasesAndMetadataMethods(t *testing.T) {
 	if byName.Name() != "json" || generic.Name() != "json" {
 		t.Errorf("language names = %q/%q", byName.Name(), generic.Name())
 	}
-	if byName.AbiVersion() != byName.ABIVersion() || byName.Version() != byName.ABIVersion() {
-		t.Errorf("ABI aliases disagree: %d/%d/%d", byName.AbiVersion(), byName.Version(), byName.ABIVersion())
+	if byName.ABIVersion() != byName.ABIVersion() || byName.Version() != byName.ABIVersion() {
+		t.Errorf("ABI aliases disagree: %d/%d/%d", byName.ABIVersion(), byName.Version(), byName.ABIVersion())
 	}
 	if byName.StateCount() == 0 || byName.SymbolCount() == 0 || byName.FieldCount() == 0 {
 		t.Errorf("metadata counts = states %d symbols %d fields %d", byName.StateCount(), byName.SymbolCount(), byName.FieldCount())
@@ -175,5 +175,25 @@ func TestRuntimeOptionsInterpreterAndConfigure(t *testing.T) {
 	}
 	if err := rt.Close(); err != nil {
 		t.Fatalf("Runtime.Close: %v", err)
+	}
+}
+
+func TestRuntimeRejectsModuleWithoutMemory(t *testing.T) {
+	ctx := context.Background()
+	empty := []byte{0, 'a', 's', 'm', 1, 0, 0, 0}
+	if rt, err := NewRuntime(ctx, empty); rt != nil || !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("NewRuntime without memory = %v, %v", rt, err)
+	}
+	host := wazero.NewRuntime(ctx)
+	defer host.Close(ctx)
+	module, err := host.Instantiate(ctx, empty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rt, err := NewRuntimeFromModule(ctx, module); rt != nil || !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("NewRuntimeFromModule without memory = %v, %v", rt, err)
+	}
+	if module.IsClosed() {
+		t.Fatal("failed wrapper closed caller's module")
 	}
 }

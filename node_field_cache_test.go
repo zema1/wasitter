@@ -76,7 +76,7 @@ func TestFieldLookupCacheAndLegacyFallback(t *testing.T) {
 							want := tree.registerNode(h)
 							got := n.ChildByFieldName(field)
 							if !got.Equal(want) {
-								t.Fatalf("%s field %q: got %s, want %s", n.Kind(), field, got.Kind(), want.Kind())
+								t.Fatalf("%s field %q: got %s, want %s", n.Type(), field, got.Type(), want.Type())
 							}
 						}
 						for i := 0; i < n.NamedChildCount(); i++ {

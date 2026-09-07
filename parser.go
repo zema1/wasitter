@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	goruntime "runtime"
 	"sync"
 	"sync/atomic"
@@ -14,6 +13,11 @@ import (
 )
 
 // Parser is a stateful Tree-sitter parser running in a WASM module.
+// Use [NewJSONParser], [NewJavaScriptParser], [NewParserFromFile], or
+// [NewParserFromWASM] to create a parser ready for [Parser.ParseContext].
+// Reuse it for sequential parses, closing each returned [Tree] when finished.
+// Close the parser before its [Runtime]; closing the parser does not invalidate
+// its trees. For parallel parsing, give each worker its own parser and runtime.
 type Parser struct {
 	runtime *Runtime
 	// runtimeMu protects the lazily bound runtime pointer. Most parser
@@ -36,7 +40,7 @@ type Parser struct {
 	// compatCancellationFlag and externalCancellationFlag back the optional
 	// upstream-style CancellationFlag/SetCancellationFlag helpers.  A native
 	// Tree-sitter parser exposes a pointer that callers may set asynchronously;
-	// the WASM ABI cannot expose a Go pointer directly, so ParseWithOptions
+	// the WASM ABI cannot expose a Go pointer directly, so ParseWithOptionsContext
 	// mirrors the value into a short-lived guest cell while a parse is running.
 	compatCancellationFlag    uintptr
 	compatCancellationEnabled atomic.Bool
@@ -65,30 +69,10 @@ func (p *Parser) setRuntime(r *Runtime) {
 	p.runtimeMu.Unlock()
 }
 
-// NewParser creates a parser. A runtime may be supplied as an optional
-// argument; omitting it creates an unbound parser that is lazily attached to
-// the Runtime of the first language passed to SetLanguage. This variadic form
-// preserves the familiar upstream NewParser() call while allowing
-// NewParser(rt) in small programs.
-func NewParser(runtimes ...*Runtime) *Parser {
-	p := &Parser{}
-	if len(runtimes) != 0 {
-		p.setRuntime(runtimes[0])
-		if p.runtimePtr() != nil {
-			// Constructors cannot return an error for compatibility. A failed
-			// guest allocation is reported by ParseWithError.
-			if h, err := p.newGuestParser(); err == nil {
-				p.handle.Store(h)
-			}
-		}
-	}
-	if p.handle.Load() != 0 {
-		goruntime.SetFinalizer(p, func(parser *Parser) { _ = parser.Close() })
-	}
-	return p
-}
-
-// NewParserWithRuntime creates a parser and reports guest construction errors.
+// NewParserWithRuntime creates a parser in an existing runtime. Call
+// [Parser.SetLanguage] with a language from that runtime before parsing.
+// Closing the parser does not close rt. For a parser configured in one call,
+// use [NewParserFromFile], [NewParserFromWASM], or a built-in parser constructor.
 func NewParserWithRuntime(rt *Runtime) (*Parser, error) {
 	if rt == nil {
 		return nil, ErrNoRuntime
@@ -192,7 +176,7 @@ func (p *Parser) Handle() uint32 {
 // SetLanguage assigns a grammar to the parser.
 func (p *Parser) SetLanguage(language *Language) error {
 	// Keep the upstream construction pattern usable: callers commonly create a
-	// parser first and attach a language later (`NewParser(); p.SetLanguage(l)`).
+	// parser first and attach a language later (`var p Parser; p.SetLanguage(l)`).
 	// Such a parser has no runtime yet, so ensureOpen cannot be called until the
 	// language has supplied one.  The parser lock below serializes this lazy
 	// attachment with another SetLanguage or Close call.
@@ -252,8 +236,7 @@ func (p *Parser) SetLanguage(language *Language) error {
 		return fmt.Errorf("wasitter: language belongs to a different runtime")
 	}
 	if p.handle.Load() == 0 {
-		// NewParser(rt) deliberately keeps construction error-free.  If its
-		// initial allocation failed, retry now so SetLanguage has deterministic
+		// A previous guest allocation may have failed. Retry so SetLanguage has deterministic
 		// error reporting rather than returning ErrInvalidHandle forever.
 		h, err := p.newGuestParser()
 		if err != nil {
@@ -268,7 +251,7 @@ func (p *Parser) SetLanguage(language *Language) error {
 	// Metadata is optional on older/custom bridges, so unavailable/zero values
 	// are left to the guest validator.
 	if version, versionErr := language.ABIVersionE(); versionErr == nil &&
-		version != 0 && (version < MIN_COMPATIBLE_LANGUAGE_VERSION || version > LANGUAGE_VERSION) {
+		version != 0 && (version < MinCompatibleLanguageVersion || version > LanguageVersion) {
 		return &LanguageError{Version: version}
 	}
 	// Close sets the lifecycle bit before waiting for this mutex.  Recheck
@@ -405,10 +388,6 @@ func (p *Parser) SetIncludedRanges(ranges []Range) error {
 	return nil
 }
 
-// SetIncludedRangesE is an explicit error-suffixed alias for
-// SetIncludedRanges.
-func (p *Parser) SetIncludedRangesE(ranges []Range) error { return p.SetIncludedRanges(ranges) }
-
 // IncludedRanges returns a copy of the ranges currently configured on the
 // parser. Bridges without the optional guest accessor use the locally retained
 // list, initialized to Tree-sitter's implicit whole-document range.
@@ -416,9 +395,6 @@ func (p *Parser) IncludedRanges() []Range {
 	ranges, _ := p.IncludedRangesE()
 	return ranges
 }
-
-// GetIncludedRanges is a compatibility alias for IncludedRanges.
-func (p *Parser) GetIncludedRanges() []Range { return p.IncludedRanges() }
 
 // IncludedRangesE is the error-returning form of IncludedRanges.
 func (p *Parser) IncludedRangesE() ([]Range, error) {
@@ -550,30 +526,12 @@ func (p *Parser) Parse(input []byte, oldTrees ...*Tree) (*Tree, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.ParseWithOptions(p.runtimeContext(), input, oldTree, nil)
-}
-
-// ParseWithError is an explicit spelling useful when migrating from bindings
-// whose Parse method had a different signature.
-func (p *Parser) ParseWithError(input []byte, oldTrees ...*Tree) (*Tree, error) {
-	return p.Parse(input, oldTrees...)
+	return p.ParseWithOptionsContext(p.runtimeContext(), input, oldTree, nil)
 }
 
 // ParseString parses a UTF-8 string.
 func (p *Parser) ParseString(input string, oldTrees ...*Tree) (*Tree, error) {
 	return p.Parse([]byte(input), oldTrees...)
-}
-
-// ParseUTF8 is an explicit spelling for Parse.
-func (p *Parser) ParseUTF8(input []byte, oldTrees ...*Tree) (*Tree, error) {
-	return p.Parse(input, oldTrees...)
-}
-
-// ParseCompat mirrors the upstream binding's no-error convenience. It returns
-// nil when parsing fails; callers that need diagnostics should use Parse.
-func (p *Parser) ParseCompat(input []byte, oldTrees ...*Tree) *Tree {
-	t, _ := p.Parse(input, oldTrees...)
-	return t
 }
 
 // MustParse parses input and panics on an ABI/runtime error.
@@ -585,131 +543,21 @@ func (p *Parser) MustParse(input []byte, oldTrees ...*Tree) *Tree {
 	return t
 }
 
-// ParseContext parses with a caller-supplied context. Cancellation is passed
-// directly to wazero and is honored by runtimes configured with
-// WithCloseOnContextDone.
+// ParseContext parses UTF-8 input with a caller-supplied context. The
+// optional old tree must first be updated with [Tree.Edit] for incremental
+// parsing. Close the returned tree when finished. A nil error does not imply
+// valid syntax: check [Node.HasError] on the root separately.
+//
+// Cancellation is checked before and after parsing and bridged to the native
+// cancellation flag when the module supports it. A wazero runtime configured
+// with WithCloseOnContextDone can also interrupt guest execution by closing the
+// module, after which the runtime cannot be reused.
 func (p *Parser) ParseContext(ctx context.Context, input []byte, oldTrees ...*Tree) (*Tree, error) {
 	oldTree, err := oneOldTree(oldTrees)
 	if err != nil {
 		return nil, err
 	}
-	return p.ParseWithOptions(ctx, input, oldTree, nil)
-}
-
-// ParseCtx parses with a caller-supplied context.
-//
-// The modern tree-sitter Go binding spells this as ParseCtx(ctx, input,
-// oldTree), which is also wasitter's preferred ordering. For compatibility
-// with early experimental adapters, the old-tree-first ordering is accepted
-// as well. Go does not support overloaded methods, so this entry point uses
-// strict runtime type validation. The strongly typed ParseContext method
-// remains available for code that prefers compile-time argument checking.
-func (p *Parser) ParseCtx(ctx context.Context, args ...any) (*Tree, error) {
-	if len(args) < 1 || len(args) > 2 {
-		return nil, fmt.Errorf("wasitter: ParseCtx expects (input, oldTree) or (oldTree, input), got %d arguments", len(args))
-	}
-	var input []byte
-	var oldTree *Tree
-	// A byte slice in the first position identifies the canonical ordering. A
-	// nil first argument is ambiguous: it can be a nil input, or the alternate
-	// old-tree-first argument. Resolve the useful alternate form
-	// (`ParseCtx(ctx, nil, input)`) by looking at the second argument before
-	// falling back to the canonical interpretation. This is
-	// especially important because an untyped nil passed through an `any`
-	// parameter loses whether the caller intended a tree or a byte slice.
-	if first, ok := args[0].([]byte); ok || args[0] == nil {
-		if args[0] == nil && len(args) == 2 {
-			if modernInput, inputOK := args[1].([]byte); inputOK {
-				return p.ParseContext(ctx, modernInput, nil)
-			}
-			// A non-byte second argument is handled by the historical
-			// branch below so it receives the precise old-tree diagnostic.
-		}
-		if ok {
-			input = first
-		}
-		if len(args) == 2 {
-			var treeOK bool
-			oldTree, treeOK = parseParseOptionsTreeArg(args[1])
-			if !treeOK {
-				return nil, fmt.Errorf("wasitter: ParseCtx old tree must be *Tree or nil, got %T", args[1])
-			}
-		}
-		return p.ParseContext(ctx, input, oldTree)
-	}
-	// Otherwise the first argument must be the alternate old-tree position and
-	// the second argument must contain the source bytes.
-	var treeOK bool
-	oldTree, treeOK = parseParseOptionsTreeArg(args[0])
-	if !treeOK {
-		return nil, fmt.Errorf("wasitter: ParseCtx first argument must be []byte, *Tree, or nil, got %T", args[0])
-	}
-	if len(args) != 2 {
-		return nil, fmt.Errorf("wasitter: ParseCtx old-tree form requires input []byte")
-	}
-	var inputOK bool
-	input, inputOK = args[1].([]byte)
-	if !inputOK && args[1] != nil {
-		return nil, fmt.Errorf("wasitter: ParseCtx input must be []byte or nil, got %T", args[1])
-	}
-	return p.ParseContext(ctx, input, oldTree)
-}
-
-// ParseInput parses data supplied lazily by a callback or an Input descriptor.
-//
-// The historical wasitter form is ParseInput(read, oldTree), where read is
-// a function receiving a uint32 byte offset. The smacker/go-tree-sitter form
-// is ParseInput(oldTree, Input). Accepting both forms keeps migration
-// straightforward while ParseInputCtx remains the strongly typed,
-// context-aware descriptor API.
-func (p *Parser) ParseInput(args ...any) (*Tree, error) {
-	if len(args) == 0 || len(args) > 2 {
-		return nil, fmt.Errorf("wasitter: ParseInput expects (read, oldTree) or (oldTree, Input), got %d arguments", len(args))
-	}
-	// In the upstream form the old tree is commonly written as an untyped nil:
-	// `ParseInput(nil, Input{Read: ...})`.  Since both the callback and old-tree
-	// positions are represented as `any`, inspect the second argument first so
-	// this valid call is not mistaken for a nil callback.  A typed nil *Tree is
-	// handled by the regular descriptor branch below.
-	if args[0] == nil && len(args) == 2 {
-		if descriptor, ok := args[1].(Input); ok {
-			return p.ParseInputCtx(p.runtimeContext(), nil, descriptor)
-		}
-	}
-	if read, ok := normalizeUTF8ReadCallback(args[0]); ok {
-		if read == nil {
-			return nil, fmt.Errorf("wasitter: nil input callback")
-		}
-		var oldTree *Tree
-		if len(args) == 2 {
-			var treeOK bool
-			oldTree, treeOK = parseParseOptionsTreeArg(args[1])
-			if !treeOK {
-				return nil, fmt.Errorf("wasitter: ParseInput old tree must be *Tree or nil, got %T", args[1])
-			}
-		}
-		return p.parseInputRead(read, oldTree)
-	}
-	// Descriptor form: (oldTree, Input). A single Input is also accepted as a
-	// convenient no-old-tree shorthand.
-	if descriptor, ok := args[0].(Input); ok {
-		if len(args) != 1 {
-			return nil, fmt.Errorf("wasitter: ParseInput descriptor form accepts one Input argument")
-		}
-		return p.ParseInputCtx(p.runtimeContext(), nil, descriptor)
-	}
-	if len(args) != 2 {
-		return nil, fmt.Errorf("wasitter: ParseInput first argument must be a callback or *Tree, got %T", args[0])
-	}
-	oldTree, treeOK := parseParseOptionsTreeArg(args[0])
-	if !treeOK {
-		return nil, fmt.Errorf("wasitter: ParseInput old tree must be *Tree or nil, got %T", args[0])
-	}
-	descriptor, descriptorOK := args[1].(Input)
-	if !descriptorOK {
-		return nil, fmt.Errorf("wasitter: ParseInput input must be Input, got %T", args[1])
-	}
-	return p.ParseInputCtx(p.runtimeContext(), oldTree, descriptor)
+	return p.ParseWithOptionsContext(ctx, input, oldTree, nil)
 }
 
 // parseInputRead is the typed implementation shared by ParseInput and the
@@ -720,7 +568,7 @@ func (p *Parser) parseInputRead(read ReadFunc, oldTree *Tree) (*Tree, error) {
 	}
 	// Validate ownership before invoking user code. Apart from avoiding
 	// surprising callback side effects after Parser.Close, this keeps callback
-	// parsing consistent with ParseWithOptions' lifecycle behavior.
+	// parsing consistent with ParseWithOptionsContext' lifecycle behavior.
 	if err := p.ensureOpen(); err != nil {
 		return nil, err
 	}
@@ -774,229 +622,29 @@ func collectUTF8Input(read func(offset uint32, point Point) []byte) ([]byte, err
 	return nil, io.ErrNoProgress
 }
 
-// ParseUTF16LE parses UTF-16 code units. The WASM shim consumes UTF-8, so the
-// code units are decoded before parsing; source offsets in the returned tree
-// therefore refer to the UTF-8 representation. The old tree may be nil.
-func (p *Parser) ParseUTF16LE(input []uint16, oldTrees ...*Tree) (*Tree, error) {
+// ParseUTF16 decodes UTF-16 code units and parses the resulting UTF-8 text.
+// Tree offsets and columns refer to that UTF-8 text. Go uint16 values have no
+// byte order; byte-oriented input can use [InputEncodingUTF16LE] or
+// [InputEncodingUTF16BE] with [Parser.ParseInput].
+func (p *Parser) ParseUTF16(input []uint16, oldTrees ...*Tree) (*Tree, error) {
 	return p.Parse(utf8BytesFromUTF16(input), oldTrees...)
-}
-
-// ParseUTF16LEText is the non-incremental one-argument convenience form.
-func (p *Parser) ParseUTF16LEText(input []uint16) (*Tree, error) {
-	return p.ParseUTF16LE(input)
-}
-
-// ParseUTF16BE is equivalent to ParseUTF16LE for Go uint16 code units. A Go
-// uint16 slice has no byte order; callers should decode external big-endian
-// bytes into uint16 values first.
-func (p *Parser) ParseUTF16BE(input []uint16, oldTrees ...*Tree) (*Tree, error) {
-	return p.Parse(utf8BytesFromUTF16(input), oldTrees...)
-}
-
-// ParseUTF16BEText is the non-incremental one-argument convenience form.
-func (p *Parser) ParseUTF16BEText(input []uint16) (*Tree, error) {
-	return p.ParseUTF16BE(input)
 }
 
 func utf8BytesFromUTF16(input []uint16) []byte {
 	return []byte(string(utf16.Decode(input)))
 }
 
-// ParseWithOptions parses with optional progress instrumentation. The current
-// shim ABI does not expose a callback trampoline; the callback is invoked once
-// before and once after the guest call so callers still get deterministic
-// cancellation behavior.
-// ParseWithOptions parses input with optional progress instrumentation.
-//
-// The package originally exposed a WASM-oriented form:
-//
-//	ParseWithOptions(ctx, input, oldTree, options)
-//
-// whereas the upstream tree-sitter Go binding uses a callback-oriented form:
-//
-//	ParseWithOptions(read, oldTree, options)
-//
-// Go has no method overloading, so this entry point accepts both forms and
-// performs strict argument validation before dispatching to the typed
-// implementation below.  The callback form is materialized into one UTF-8
-// buffer before entering the guest, just like ParseInput.  Returning an error
-// is intentional: it preserves the idiomatic/error-aware API of wasitter
-// while still allowing source-compatible calls to the upstream shape.
-func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("wasitter: ParseWithOptions requires arguments")
-	}
-
-	// WASM-oriented form: (context.Context, []byte, *Tree, *ParseOptions).
-	// Accept a three-argument variant with a nil/default options value as a
-	// convenience; the historical four-argument form remains unchanged.
-	if ctx, isContext := args[0].(context.Context); isContext || args[0] == nil {
-		if len(args) < 2 || len(args) > 4 {
-			return nil, fmt.Errorf("wasitter: ParseWithOptions context form expects 2 to 4 arguments, got %d", len(args))
-		}
-		var input []byte
-		if args[1] != nil {
-			var ok bool
-			input, ok = args[1].([]byte)
-			if !ok {
-				return nil, fmt.Errorf("wasitter: ParseWithOptions input must be []byte, got %T", args[1])
-			}
-		}
-		var oldTree *Tree
-		if len(args) >= 3 {
-			var ok bool
-			oldTree, ok = parseParseOptionsTreeArg(args[2])
-			if !ok {
-				return nil, fmt.Errorf("wasitter: ParseWithOptions old tree must be *Tree or nil, got %T", args[2])
-			}
-		}
-		var options *ParseOptions
-		if len(args) >= 4 {
-			var ok bool
-			options, ok = parseParseOptionsArg(args[3])
-			if !ok {
-				return nil, fmt.Errorf("wasitter: ParseWithOptions options must be *ParseOptions, ParseOptions, or nil, got %T", args[3])
-			}
-		}
-		return p.parseWithOptionsContext(ctx, input, oldTree, options)
-	}
-
-	// Upstream callback form: (func(int, Point) []byte, *Tree,
-	// *ParseOptions). A two-argument variant is accepted as the natural alias
-	// of ParseWith and uses no options.
-	if len(args) < 1 || len(args) > 3 {
-		return nil, fmt.Errorf("wasitter: ParseWithOptions callback form expects 1 to 3 arguments, got %d", len(args))
-	}
-	read, ok := normalizeUTF8ReadCallback(args[0])
-	if !ok || read == nil {
-		return nil, fmt.Errorf("wasitter: ParseWithOptions callback must be func(int, Point) []byte or ReadFunc, got %T", args[0])
-	}
-	// Validate ownership before invoking user code. Apart from producing a
-	// deterministic lifecycle error for a closed/unbound parser, this avoids
-	// surprising callback side effects when the parse cannot possibly start.
-	if err := p.ensureOpen(); err != nil {
-		return nil, err
-	}
-	var oldTree *Tree
-	if len(args) >= 2 {
-		var treeOK bool
-		oldTree, treeOK = parseParseOptionsTreeArg(args[1])
-		if !treeOK {
-			return nil, fmt.Errorf("wasitter: ParseWithOptions old tree must be *Tree or nil, got %T", args[1])
-		}
-	}
-	var options *ParseOptions
-	if len(args) >= 3 {
-		var optionsOK bool
-		options, optionsOK = parseParseOptionsArg(args[2])
-		if !optionsOK {
-			return nil, fmt.Errorf("wasitter: ParseWithOptions options must be *ParseOptions, ParseOptions, or nil, got %T", args[2])
-		}
-	}
-	input, err := collectUTF8Input(read)
-	if err != nil {
-		return nil, err
-	}
-	return p.parseWithOptionsContext(p.runtimeContext(), input, oldTree, options)
-}
-
-// ParseWithOptionsContext is the strongly typed spelling of the
-// context-plus-byte-slice ParseWithOptions form. It is useful for callers who
-// prefer compile-time argument checking while ParseWithOptions itself remains
-// source-compatible with the upstream callback form.
+// ParseWithOptionsContext parses UTF-8 input with a context and optional
+// progress callback. Pass nil for oldTree on the first parse and nil for default
+// options. Apply [Tree.Edit] before reusing an old tree for incremental parsing.
+// The progress callback runs before and after the guest call; it does not
+// observe individual parser steps. Close the returned tree when finished.
 func (p *Parser) ParseWithOptionsContext(ctx context.Context, input []byte, oldTree *Tree, options *ParseOptions) (*Tree, error) {
 	return p.parseWithOptionsContext(ctx, input, oldTree, options)
 }
 
-// parseParseOptionsTreeArg decodes the optional old-tree argument used by the
-// variadic ParseWithOptions compatibility dispatcher. A nil interface and a
-// typed nil *Tree both represent no old tree.
-func parseParseOptionsTreeArg(value any) (*Tree, bool) {
-	if value == nil {
-		return nil, true
-	}
-	tree, ok := value.(*Tree)
-	return tree, ok
-}
-
-// parseParseOptionsArg decodes ParseOptions in pointer or value form. The
-// upstream API uses *ParseOptions; accepting a value is harmless and avoids a
-// surprising failure when callers use the value-shaped Go API elsewhere.
-func parseParseOptionsArg(value any) (*ParseOptions, bool) {
-	if value == nil {
-		return nil, true
-	}
-	switch options := value.(type) {
-	case *ParseOptions:
-		return options, true
-	case ParseOptions:
-		copy := options
-		return &copy, true
-	default:
-		return nil, false
-	}
-}
-
-// normalizeUTF8ReadCallback adapts callback spellings used by the upstream
-// binding (int offsets) and by wasitter's fixed-width ReadFunc (uint32
-// offsets) to collectUTF8Input's canonical uint32 callback.
-func normalizeUTF8ReadCallback(value any) (ReadFunc, bool) {
-	switch callback := value.(type) {
-	case func(int, Point) []byte:
-		if callback == nil {
-			return nil, true
-		}
-		return func(offset uint32, point Point) []byte {
-			// On a 32-bit host int can represent every uint32 value; on a wider
-			// host this conversion is exact as well. Keep the explicit conversion
-			// here to make the callback contract obvious.
-			return callback(int(offset), point)
-		}, true
-	case ReadFunc:
-		if callback == nil {
-			return nil, true
-		}
-		return callback, true
-	case func(uint32, Point) []byte:
-		if callback == nil {
-			return nil, true
-		}
-		return ReadFunc(callback), true
-	}
-	// A variadic compatibility entry point receives callbacks as `any`, which
-	// means a user-defined function type (for example `type Reader func(int,
-	// Point) []byte`) does not match the unnamed function cases above even
-	// though it is assignment-compatible with the upstream API. Convert such
-	// defined function types once at the boundary so callers do not need an
-	// explicit cast. Reflection is used only during dispatch; the returned
-	// closure is an ordinary typed function and incurs no per-byte reflection.
-	if value == nil {
-		return nil, true
-	}
-	rv := reflect.ValueOf(value)
-	if rv.Kind() != reflect.Func {
-		return nil, false
-	}
-	if rv.IsNil() {
-		return nil, true
-	}
-	intCallbackType := reflect.TypeOf((func(int, Point) []byte)(nil))
-	if rv.Type().ConvertibleTo(intCallbackType) {
-		callback := rv.Convert(intCallbackType).Interface().(func(int, Point) []byte)
-		return func(offset uint32, point Point) []byte {
-			return callback(int(offset), point)
-		}, true
-	}
-	uint32CallbackType := reflect.TypeOf((func(uint32, Point) []byte)(nil))
-	if rv.Type().ConvertibleTo(uint32CallbackType) {
-		callback := rv.Convert(uint32CallbackType).Interface().(func(uint32, Point) []byte)
-		return ReadFunc(callback), true
-	}
-	return nil, false
-}
-
 // parseWithOptionsContext contains the strongly typed implementation shared
-// by both ParseWithOptions argument forms and all internal convenience APIs.
+// by the public parsing methods.
 func (p *Parser) parseWithOptionsContext(ctx context.Context, input []byte, oldTree *Tree, options *ParseOptions) (*Tree, error) {
 	if ctx == nil {
 		ctx = p.runtimeContext()
@@ -1030,7 +678,7 @@ func (p *Parser) parseWithOptionsContext(ctx context.Context, input []byte, oldT
 			return nil, err
 		}
 		// Use the synchronized runtime accessor.  A parser created with
-		// NewParser() may still be attaching its runtime in SetLanguage while a
+		// A zero-value Parser may still be attaching its runtime in SetLanguage while a
 		// caller starts a parse; reading p.runtime directly here would race and
 		// could incorrectly reject an old tree from the same runtime.
 		if oldTree.runtime() != p.runtimePtr() {
@@ -1564,69 +1212,19 @@ func (p *Parser) Reset() error {
 	return nil
 }
 
-// SetLogger stores a logger for clients and uses a bridge logger export when
-// available. Logging callbacks are optional in the stable shim ABI. Both the
-// legacy Logger (func(string, string)) and Tree-sitter's TypedLogger
-// (func(LogType, string)) are accepted; unnamed functions with either shape
-// are accepted as well.
-func (p *Parser) SetLogger(logger any) error {
+// SetLogger stores a diagnostics callback. Pass nil to clear it. The bundled
+// WASM bridge does not forward native parser log messages to this callback.
+func (p *Parser) SetLogger(logger Logger) error {
 	if err := p.ensureOpen(); err != nil {
 		return err
 	}
 	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.closed.Load() || p.handle.Load() == 0 {
-		p.mu.Unlock()
 		return ErrClosed
 	}
-	switch value := logger.(type) {
-	case nil:
-		p.logger = nil
-	case Logger:
-		if value == nil {
-			p.logger = nil
-		} else {
-			p.logger = value
-		}
-	case func(string, string):
-		if value == nil {
-			p.logger = nil
-		} else {
-			p.logger = Logger(value)
-		}
-	case TypedLogger:
-		if value == nil {
-			p.logger = nil
-		} else {
-			p.logger = func(typ, message string) {
-				value(logTypeFromString(typ), message)
-			}
-		}
-	case func(LogType, string):
-		if value == nil {
-			p.logger = nil
-		} else {
-			p.logger = func(typ, message string) {
-				value(logTypeFromString(typ), message)
-			}
-		}
-	default:
-		p.mu.Unlock()
-		return fmt.Errorf("wasitter: unsupported logger type %T", logger)
-	}
-	p.mu.Unlock()
+	p.logger = logger
 	return nil
-}
-
-// SetTypedLogger is an explicit spelling for callers that want the
-// Tree-sitter-compatible LogType callback without relying on SetLogger's
-// type-switch compatibility behavior.
-func (p *Parser) SetTypedLogger(logger TypedLogger) error { return p.SetLogger(logger) }
-
-func logTypeFromString(value string) LogType {
-	if value == "lex" {
-		return LogTypeLex
-	}
-	return LogTypeParse
 }
 
 // Logger returns the logger currently associated with the parser.

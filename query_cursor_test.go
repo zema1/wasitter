@@ -24,8 +24,8 @@ func TestQueryMatchesAndCursor(t *testing.T) {
 	if query.PatternCount() != 1 || query.CaptureCount() != 1 {
 		t.Errorf("query counts = pattern %d capture %d, want 1/1", query.PatternCount(), query.CaptureCount())
 	}
-	if query.CaptureName(0) != "number" || query.CaptureNameForID(0) != "number" {
-		t.Errorf("capture name = %q/%q", query.CaptureName(0), query.CaptureNameForID(0))
+	if query.CaptureName(0) != "number" || query.CaptureName(0) != "number" {
+		t.Errorf("capture name = %q/%q", query.CaptureName(0), query.CaptureName(0))
 	}
 
 	matches := query.Matches(tree.RootNode())
@@ -99,37 +99,37 @@ func TestTreeCursorNavigation(t *testing.T) {
 		t.Fatal("Tree.Walk returned nil")
 	}
 	t.Cleanup(func() { _ = cursor.Close() })
-	if cursor.Node().Type() != "document" {
-		t.Fatalf("initial cursor node = %q, want document", cursor.Node().Type())
+	if cursor.CurrentNode().Type() != "document" {
+		t.Fatalf("initial cursor node = %q, want document", cursor.CurrentNode().Type())
 	}
 	if cursor.CurrentDepth() != 0 {
 		t.Errorf("initial depth = %d, want 0", cursor.CurrentDepth())
 	}
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "array" {
-		t.Fatalf("GoToFirstChild node = %q; want array", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "array" {
+		t.Fatalf("GoToFirstChild node = %q; want array", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "[" {
-		t.Fatalf("nested GoToFirstChild node = %q; want [", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "[" {
+		t.Fatalf("nested GoToFirstChild node = %q; want [", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToNextSibling() || cursor.Node().Type() != "number" {
-		t.Fatalf("GoToNextSibling node = %q, want number", cursor.Node().Type())
+	if !cursor.GoToNextSibling() || cursor.CurrentNode().Type() != "number" {
+		t.Fatalf("GoToNextSibling node = %q, want number", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToNextNamedSibling() || cursor.Node().Type() != "false" {
-		t.Fatalf("GoToNextNamedSibling node = %q, want false", cursor.Node().Type())
+	if !cursor.GoToNextNamedSibling() || cursor.CurrentNode().Type() != "false" {
+		t.Fatalf("GoToNextNamedSibling node = %q, want false", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToPreviousNamedSibling() || cursor.Node().Type() != "number" {
-		t.Fatalf("GoToPreviousNamedSibling node = %q, want number", cursor.Node().Type())
+	if !cursor.GoToPreviousNamedSibling() || cursor.CurrentNode().Type() != "number" {
+		t.Fatalf("GoToPreviousNamedSibling node = %q, want number", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToParent() || cursor.Node().Type() != "array" {
-		t.Fatalf("GoToParent node = %q, want array", cursor.Node().Type())
+	if !cursor.GoToParent() || cursor.CurrentNode().Type() != "array" {
+		t.Fatalf("GoToParent node = %q, want array", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToParent() || cursor.Node().Type() != "document" {
-		t.Fatalf("second GoToParent node = %q, want document", cursor.Node().Type())
+	if !cursor.GoToParent() || cursor.CurrentNode().Type() != "document" {
+		t.Fatalf("second GoToParent node = %q, want document", cursor.CurrentNode().Type())
 	}
 	if cursor.GoToParent() {
-		t.Fatalf("cursor should stop at root boundary, node = %q", cursor.Node().Type())
+		t.Fatalf("cursor should stop at root boundary, node = %q", cursor.CurrentNode().Type())
 	}
-	if cursor.GoToFirstChildForByte(2) && cursor.Node().IsNull() {
+	if cursor.GoToFirstChildForByte(2) && cursor.CurrentNode().IsNull() {
 		t.Error("GoToFirstChildForByte returned a null node")
 	}
 	if err := cursor.Close(); err != nil {
@@ -148,45 +148,45 @@ func TestTreeCursorOptionalNavigationAndFields(t *testing.T) {
 	}
 	defer cursor.Close()
 	root := tree.RootNode()
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "object" {
-		t.Fatalf("GoToFirstChild node = %q, want object", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "object" {
+		t.Fatalf("GoToFirstChild node = %q, want object", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "{" {
-		t.Fatalf("object first child = %q, want {", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "{" {
+		t.Fatalf("object first child = %q, want {", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToNextSibling() || cursor.Node().Type() != "pair" {
-		t.Fatalf("object pair child = %q, want pair", cursor.Node().Type())
+	if !cursor.GoToNextSibling() || cursor.CurrentNode().Type() != "pair" {
+		t.Fatalf("object pair child = %q, want pair", cursor.CurrentNode().Type())
 	}
-	if cursor.CurrentFieldName() != "" || cursor.FieldName() != "" {
-		t.Errorf("top-level pair field = %q/%q, want empty", cursor.CurrentFieldName(), cursor.FieldName())
+	if cursor.CurrentFieldName() != "" || cursor.CurrentFieldName() != "" {
+		t.Errorf("top-level pair field = %q/%q, want empty", cursor.CurrentFieldName(), cursor.CurrentFieldName())
 	}
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "string" {
-		t.Fatalf("pair first child = %q, want string", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "string" {
+		t.Fatalf("pair first child = %q, want string", cursor.CurrentNode().Type())
 	}
-	if cursor.CurrentFieldName() != "key" || cursor.FieldName() != "key" {
-		t.Errorf("key field = %q/%q, want key", cursor.CurrentFieldName(), cursor.FieldName())
+	if cursor.CurrentFieldName() != "key" || cursor.CurrentFieldName() != "key" {
+		t.Errorf("key field = %q/%q, want key", cursor.CurrentFieldName(), cursor.CurrentFieldName())
 	}
-	if !cursor.GoToNextNamedSibling() || cursor.Node().Type() != "array" {
-		t.Fatalf("value field = %q, want array", cursor.Node().Type())
+	if !cursor.GoToNextNamedSibling() || cursor.CurrentNode().Type() != "array" {
+		t.Fatalf("value field = %q, want array", cursor.CurrentNode().Type())
 	}
 	if cursor.CurrentFieldName() != "value" {
 		t.Errorf("value field = %q, want value", cursor.CurrentFieldName())
 	}
-	if !cursor.GoToLastChild() || cursor.Node().Type() != "]" {
-		t.Fatalf("array last child = %q, want ]", cursor.Node().Type())
+	if !cursor.GoToLastChild() || cursor.CurrentNode().Type() != "]" {
+		t.Fatalf("array last child = %q, want ]", cursor.CurrentNode().Type())
 	}
 	if cursor.GoToFirstChildForPoint(wasitter.Point{Row: 0, Column: 10}) {
-		t.Errorf("leaf GoToFirstChildForPoint unexpectedly moved to %q", cursor.Node().Type())
+		t.Errorf("leaf GoToFirstChildForPoint unexpectedly moved to %q", cursor.CurrentNode().Type())
 	}
 	cursor.Reset(root)
-	if cursor.Node().Type() != "document" || cursor.CurrentDepth() != 0 {
-		t.Errorf("Reset(root) = %q depth %d", cursor.Node().Type(), cursor.CurrentDepth())
+	if cursor.CurrentNode().Type() != "document" || cursor.CurrentDepth() != 0 {
+		t.Errorf("Reset(root) = %q depth %d", cursor.CurrentNode().Type(), cursor.CurrentDepth())
 	}
 	if !cursor.GoToFirstChildForPoint(wasitter.Point{Row: 0, Column: 3}) {
 		t.Fatal("GoToFirstChildForPoint did not enter object")
 	}
-	if cursor.Node().Type() != "object" {
-		t.Errorf("GoToFirstChildForPoint node = %q, want object", cursor.Node().Type())
+	if cursor.CurrentNode().Type() != "object" {
+		t.Errorf("GoToFirstChildForPoint node = %q, want object", cursor.CurrentNode().Type())
 	}
 }
 

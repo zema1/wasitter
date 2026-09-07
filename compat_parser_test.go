@@ -8,29 +8,13 @@ import (
 	wasitter "github.com/zema1/wasitter"
 )
 
-func TestParserCompatibilityAliasesAndCustomDecoder(t *testing.T) {
+func TestParserCustomDecoderAndInvalidEncoding(t *testing.T) {
 	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rt.Close()
 	defer p.Close()
-
-	if got := p.OperationLimit(); got != int(p.TimeoutMicros()) {
-		t.Fatalf("OperationLimit = %d, TimeoutMicros = %d", got, p.TimeoutMicros())
-	}
-	if err := p.SetOperationLimit(2500); err != nil {
-		t.Fatalf("SetOperationLimit: %v", err)
-	}
-	if got := p.TimeoutMicros(); got != 2500 {
-		t.Fatalf("TimeoutMicros after SetOperationLimit = %d", got)
-	}
-	if err := p.SetOperationLimit(-1); err != nil {
-		t.Fatalf("SetOperationLimit(-1): %v", err)
-	}
-	if got := p.TimeoutMicros(); got != 0 {
-		t.Fatalf("negative operation limit = %d, want 0", got)
-	}
 
 	// Decode a tiny ASCII-compatible custom encoding in which each source byte
 	// is an ASCII code point. This exercises the host-side conversion while
@@ -55,14 +39,14 @@ func TestParserCompatibilityAliasesAndCustomDecoder(t *testing.T) {
 		t.Fatalf("custom-decoded source = %q, want %q", got, input)
 	}
 
-	if _, err := p.ParseInputSpec(wasitter.Input{
+	if _, err := p.ParseInput(wasitter.Input{
 		Read: func(offset uint32, _ wasitter.Point) []byte {
 			if offset >= uint32(len(input)) {
 				return nil
 			}
 			return input[offset:]
 		},
-		Encoding: wasitter.InputEncodingUTF16,
+		Encoding: wasitter.InputEncoding(255),
 	}, nil); !errors.Is(err, wasitter.ErrUnsupported) {
 		t.Fatalf("UTF-16 InputSpec error = %v, want ErrUnsupported", err)
 	}

@@ -25,7 +25,7 @@ func TestParserCloseRacingParseDoesNotReturnTree(t *testing.T) {
 	release := make(chan struct{})
 	parseDone := make(chan error, 1)
 	go func() {
-		_, parseErr := parser.ParseWithOptions(
+		_, parseErr := parser.ParseWithOptionsContext(
 			context.Background(),
 			[]byte(`{"close":true}`),
 			nil,

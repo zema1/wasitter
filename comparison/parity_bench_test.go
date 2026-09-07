@@ -201,7 +201,10 @@ func BenchmarkQueryMatches(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			matches := cursor.Matches(query, tree.RootNode(), benchmarkSource)
+			matches, err := cursor.Matches(query, tree.RootNode(), benchmarkSource)
+			if err != nil {
+				b.Fatal(err)
+			}
 			count := 0
 			for matches.Next() != nil {
 				count++

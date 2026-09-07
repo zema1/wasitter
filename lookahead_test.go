@@ -56,8 +56,8 @@ func TestLookaheadIteratorJSON(t *testing.T) {
 		t.Fatalf("Iter returned %d symbols, want %d", len(symbols), len(names))
 	}
 	for i, symbol := range symbols {
-		if lang.NodeKindForId(symbol) != names[i] {
-			t.Fatalf("symbol[%d] = %q, want %q", i, lang.NodeKindForId(symbol), names[i])
+		if lang.NodeKindForID(symbol) != names[i] {
+			t.Fatalf("symbol[%d] = %q, want %q", i, lang.NodeKindForID(symbol), names[i])
 		}
 	}
 }

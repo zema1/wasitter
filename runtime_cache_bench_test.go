@@ -59,14 +59,14 @@ func BenchmarkJavaScriptFieldTraversal(b *testing.B) {
 				for len(stack) > 0 {
 					n := stack[len(stack)-1]
 					stack = stack[:len(stack)-1]
-					if n.Kind() == "call_expression" {
+					if n.Type() == "call_expression" {
 						var callee Node
 						if lookup == "name" {
 							callee = n.ChildByFieldName("function")
 						} else {
 							callee = n.ChildByFieldID(fieldID)
 						}
-						if callee.Kind() != "member_expression" {
+						if callee.Type() != "member_expression" {
 							b.Fatal("wrong callee")
 						}
 						count++

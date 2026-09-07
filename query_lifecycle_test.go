@@ -22,7 +22,7 @@ func TestQueryCursorProgressCancellationReleasesNativeHandleBeforeTree(t *testin
 	defer cursor.Close()
 
 	callbacks := 0
-	matches := cursor.MatchesWithOptions(
+	matches := mustQueryResult(cursor.MatchesWithOptions(
 		q,
 		tree.RootNode(),
 		[]byte(`[1, 2, 3, 4]`),
@@ -30,7 +30,7 @@ func TestQueryCursorProgressCancellationReleasesNativeHandleBeforeTree(t *testin
 			callbacks++
 			return true
 		}},
-	)
+	))
 	if callbacks == 0 {
 		t.Fatal("progress callback was not invoked")
 	}

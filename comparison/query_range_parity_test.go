@@ -66,7 +66,7 @@ func TestQueryIteratorRangeMutationParity(t *testing.T) {
 						t.Cleanup(nativeCursor.Close)
 
 						if mode == "matches" {
-							wasmMatches := wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), source)
+							wasmMatches := mustQueryResult(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), source))
 							nativeMatches := nativeCursor.Matches(nativeQuery, nativeTree.RootNode(), source)
 							for i := 0; i < consumed; i++ {
 								if wasmMatches.Next() == nil || nativeMatches.Next() == nil {
@@ -88,7 +88,7 @@ func TestQueryIteratorRangeMutationParity(t *testing.T) {
 							return
 						}
 
-						wasmCaptures := wasmCursor.Captures(wasmQuery, wasmTree.RootNode(), source)
+						wasmCaptures := mustQueryResult(wasmCursor.Captures(wasmQuery, wasmTree.RootNode(), source))
 						nativeCaptures := nativeCursor.Captures(nativeQuery, nativeTree.RootNode(), source)
 						for i := 0; i < consumed; i++ {
 							_, _ = wasmCaptures.Next()

@@ -17,26 +17,6 @@ type Node struct {
 	handle uint32
 }
 
-// nodeValueArg accepts both representations used by the established Go
-// bindings. A nil node pointer is treated as the null-node value, which keeps
-// comparison/navigation helpers total and avoids a panic in compatibility
-// callers that use an optional *Node.
-func nodeValueArg(value any) (Node, bool) {
-	switch node := value.(type) {
-	case Node:
-		return node, true
-	case *Node:
-		if node == nil {
-			return Node{}, true
-		}
-		return *node, true
-	case nil:
-		return Node{}, true
-	default:
-		return Node{}, false
-	}
-}
-
 // IsNull reports whether this is the null node returned for a missing child.
 func (n Node) IsNull() bool {
 	if n.handle == 0 || n.tree == nil {
@@ -63,9 +43,6 @@ func (n Node) IsNull() bool {
 // Valid reports whether the node can still be used.
 func (n Node) Valid() bool { return !n.IsNull() }
 
-// IsValid is an alias for Valid.
-func (n Node) IsValid() bool { return n.Valid() }
-
 // Handle returns the opaque guest node handle. A node is a value, but its
 // backing wrapper belongs to the owning Tree; once that tree (or Runtime) is
 // closed, exposing the stale guest pointer would invite accidental reuse, so
@@ -77,26 +54,22 @@ func (n Node) Handle() uint32 {
 	return n.handle
 }
 
-// Id returns Tree-sitter's stable node identity.  The ABI wrapper handle is a
+// ID returns Tree-sitter's stable node identity.  The ABI wrapper handle is a
 // short-lived allocation created for each value crossing the WASM boundary;
 // exposing that handle here would make two Go values referring to the same
 // syntax node appear unequal.  Newer bridges export tsw_node_id, while older
 // bridges fall back to the wrapper handle for compatibility.
-func (n Node) Id() uintptr {
+func (n Node) ID() uint32 {
 	if n.handle == 0 || n.tree == nil {
 		return 0
 	}
 	if value, err := n.uintValue([]string{
 		"tsw_node_id", "wasitter_node_id", "ts_node_id", "node_id",
 	}); err == nil && value != 0 {
-		return uintptr(value)
+		return uint32(value)
 	}
-	return uintptr(n.Handle())
+	return n.Handle()
 }
-
-// ID is an initialism-friendly alias for Id.  Node identities are wasm32
-// pointers, so the fixed-width form is useful when crossing another ABI.
-func (n Node) ID() uint32 { return uint32(n.Id()) }
 
 func (n Node) ensureOpen() error {
 	if n.handle == 0 || n.tree == nil {
@@ -162,9 +135,6 @@ func (n Node) TypeE() (string, error) {
 	return n.stringValue([]string{"tsw_node_type", "wasitter_node_type", "ts_node_type", "node_type"})
 }
 
-// Kind is an idiomatic alias for Type.
-func (n Node) Kind() string { return n.Type() }
-
 // KindID returns the numerical grammar symbol id.
 func (n Node) KindID() uint16 {
 	v, _ := n.uintValue([]string{"tsw_node_kind_id", "tsw_node_symbol", "wasitter_node_kind_id", "ts_node_symbol", "node_kind_id"})
@@ -174,20 +144,11 @@ func (n Node) KindID() uint16 {
 	return uint16(v)
 }
 
-// Symbol is an alias for KindID.
-func (n Node) Symbol() uint16 { return n.KindID() }
-
-// KindId is the upstream spelling of KindID.
-func (n Node) KindId() uint16 { return n.KindID() }
-
 // GrammarType returns the grammar-specific type when exposed by the bridge.
 func (n Node) GrammarType() string {
 	s, _ := n.stringValue([]string{"tsw_node_grammar_type", "wasitter_node_grammar_type", "ts_node_grammar_type", "node_grammar_type"})
 	return s
 }
-
-// GrammarName is an alias for GrammarType.
-func (n Node) GrammarName() string { return n.GrammarType() }
 
 // GrammarSymbol returns the grammar-specific symbol id for this node.
 func (n Node) GrammarSymbol() uint16 {
@@ -198,11 +159,8 @@ func (n Node) GrammarSymbol() uint16 {
 	return uint16(v)
 }
 
-// GrammarId is the upstream spelling of GrammarSymbol.
-func (n Node) GrammarId() uint16 { return n.GrammarSymbol() }
-
-// GrammarID is an initialism-friendly alias for GrammarId.
-func (n Node) GrammarID() uint16 { return n.GrammarId() }
+// GrammarID is the upstream spelling of GrammarSymbol.
+func (n Node) GrammarID() uint16 { return n.GrammarSymbol() }
 
 // Language returns the grammar associated with this node. The guest
 // ts_node_language value is authoritative; falling back to the parser's
@@ -366,9 +324,6 @@ func (n Node) StartPoint() Point {
 	return p
 }
 
-// StartPosition is the upstream spelling of StartPoint.
-func (n Node) StartPosition() Point { return n.StartPoint() }
-
 // StartPointE returns the inclusive start position and any ABI or lifecycle
 // error.
 func (n Node) StartPointE() (Point, error) {
@@ -380,9 +335,6 @@ func (n Node) EndPoint() Point {
 	p, _ := n.position([]string{"tsw_node_end_point", "wasitter_node_end_point", "ts_node_end_point", "node_end_point"})
 	return p
 }
-
-// EndPosition is the upstream spelling of EndPoint.
-func (n Node) EndPosition() Point { return n.EndPoint() }
 
 // EndPointE returns the exclusive end position and any ABI or lifecycle
 // error.
@@ -597,8 +549,8 @@ func (n Node) childByFieldNameIDLocked(field string) ([]uint64, error) {
 	return childFn.Call(context.Background(), uint64(n.handle), uint64(id))
 }
 
-// ChildByFieldId resolves a numeric field id through the node's language.
-func (n Node) ChildByFieldId(fieldID uint16) Node {
+// ChildByFieldID resolves a numeric field id through the node's language.
+func (n Node) ChildByFieldID(fieldID uint16) Node {
 	// Newer bridges expose the native numeric operation directly. This avoids
 	// a language-name round trip and preserves aliases accurately.
 	if result, err := n.call([]string{
@@ -622,9 +574,6 @@ func (n Node) ChildByFieldId(fieldID uint16) Node {
 	}
 	return n.ChildByFieldName(name)
 }
-
-// ChildByFieldID is an initialism-friendly alias for ChildByFieldId.
-func (n Node) ChildByFieldID(fieldID uint16) Node { return n.ChildByFieldId(fieldID) }
 
 // FieldNameForChild returns the field name associated with a child.
 func (n Node) FieldNameForChild(index int) string {
@@ -663,7 +612,7 @@ func (n Node) FieldNameForNamedChild(index int) string {
 
 // fieldNameForChildFallback derives a field name through the language field
 // table when a bridge does not expose ts_node_field_name_for_* accessors.
-// Tree-sitter field ids are one-based, and ChildByFieldId performs the same
+// Tree-sitter field ids are one-based, and ChildByFieldID performs the same
 // hidden-node/inherited-field resolution as the native field-name helper.  The
 // fallback is intentionally used only for legacy modules; complete bridges
 // take the O(1) native path above.
@@ -698,7 +647,7 @@ func (n Node) fieldNameForChildFallback(index int, namedOnly bool) string {
 		if name == "" {
 			continue
 		}
-		candidate := n.ChildByFieldId(fieldID)
+		candidate := n.ChildByFieldID(fieldID)
 		if candidate.handle != 0 && candidate.Equal(child) {
 			return name
 		}
@@ -762,7 +711,7 @@ func (n Node) Children(cursors ...*TreeCursor) []Node {
 	// cursors are supported by Reset and are therefore accepted when the native
 	// node comparison confirms the destination.
 	c.Reset(n)
-	if current := c.Node(); current.IsNull() || !current.Equal(n) {
+	if current := c.CurrentNode(); current.IsNull() || !current.Equal(n) {
 		return nil
 	}
 	if !c.GoToFirstChild() {
@@ -770,7 +719,7 @@ func (n Node) Children(cursors ...*TreeCursor) []Node {
 	}
 	result := make([]Node, 0, n.ChildCount())
 	for {
-		result = append(result, c.Node())
+		result = append(result, c.CurrentNode())
 		if !c.GoToNextSibling() {
 			break
 		}
@@ -856,16 +805,10 @@ func (n Node) firstChildForByteFallback(offset uint32, namedOnly bool) Node {
 	return visit(n)
 }
 
-// ChildWithDescendant returns the direct child containing descendant. If
-// descendant is the receiver itself, Tree-sitter returns a null node; callers
-// that need to preserve the receiver can check Equal before calling. Both a
-// Node value and *Node pointer are accepted so code written for either the
-// value-oriented wasitter API or the native Go binding compiles unchanged.
-func (n Node) ChildWithDescendant(value any) Node {
-	descendant, ok := nodeValueArg(value)
-	if !ok {
-		return Node{}
-	}
+// ChildWithDescendant returns the direct child containing descendant.
+// It returns a null node if descendant is the receiver itself or belongs to
+// another tree.
+func (n Node) ChildWithDescendant(descendant Node) Node {
 	// TSNode relationships are only defined within one concrete TSTree.  A
 	// Runtime can own many independent trees, and passing a node from another
 	// tree to the C helper is particularly dangerous: the two nodes may have
@@ -1363,10 +1306,7 @@ func (n Node) toSExpression(root bool) string {
 // ToSexp is the upstream spelling.
 func (n Node) ToSexp() string { return n.ToSExpression() }
 
-// SExpression is a descriptive alias for ToSExpression.
-func (n Node) SExpression() string { return n.ToSExpression() }
-
-// Walk creates a cursor rooted at this node.
+// // Walk creates a cursor rooted at this node.
 func (n Node) Walk() *TreeCursor {
 	return newTreeCursor(n)
 }
@@ -1375,11 +1315,7 @@ func (n Node) Walk() *TreeCursor {
 func (n Node) String() string { return n.ToSExpression() }
 
 // Equal compares two node references.
-func (n Node) Equal(value any) bool {
-	other, ok := nodeValueArg(value)
-	if !ok {
-		return false
-	}
+func (n Node) Equal(other Node) bool {
 	// Tree-sitter represents a null TSNode with a zero tree pointer and zero
 	// id.  Consequently two null nodes compare equal (`ts_node_eq` compares
 	// those two fields directly), while a null node and a live node do not.
@@ -1529,27 +1465,18 @@ func (n Node) equalMetadata() (nodeEqualMetadata, bool) {
 	}, true
 }
 
-// Eq is an alias for Equal.
-func (n Node) Eq(other any) bool { return n.Equal(other) }
-
-// Equals is the upstream spelling of Equal.
-func (n Node) Equals(other any) bool { return n.Equal(other) }
-
-// Edit updates this node's coordinates after an input edit. The stable shim
-// owns node values through the tree, so Tree.Edit is preferred; this method is
-// provided as a compatibility no-op that validates ownership.
-func (n Node) Edit(edit any) error {
+// Edit updates this node's coordinates after an input edit. It does not
+// edit the owning tree. Use [Tree.Edit] before incremental parsing; use this
+// method when retaining a node across that edit.
+func (n Node) Edit(edit InputEdit) error {
 	if err := n.ensureOpen(); err != nil {
 		return err
 	}
-	editValue, err := inputEditValue(edit)
-	if err != nil {
-		return err
-	}
+
 	// TSNode is a value, so editing it must not edit the owning TSTree.  Encode
 	// the same nine-field TSInputEdit record used by Tree.Edit and invoke the
 	// optional node-edit export while retaining the tree read lock.
-	buf := encodeInputEdit(editValue)
+	buf := encodeInputEdit(edit)
 	n.tree.mu.RLock()
 	defer n.tree.mu.RUnlock()
 	if err := n.ensureOpen(); err != nil {

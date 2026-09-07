@@ -48,7 +48,7 @@ func TestTreeCursorResetToDoesNotDeadlock(t *testing.T) {
 			t.Fatal("opposite-order ResetTo deadlocked")
 		}
 	}
-	if a.Node().IsNull() || b.Node().IsNull() {
+	if a.CurrentNode().IsNull() || b.CurrentNode().IsNull() {
 		t.Fatal("ResetTo left a cursor at a null node")
 	}
 }
@@ -65,7 +65,7 @@ func TestTreeCursorNativeMovementRefreshesNode(t *testing.T) {
 	if !cursor.GoToFirstChildForByte(1) {
 		t.Fatal("GoToFirstChildForByte did not move")
 	}
-	if got := cursor.Node().Type(); got != "array" {
+	if got := cursor.CurrentNode().Type(); got != "array" {
 		t.Fatalf("byte movement node = %q, want array", got)
 	}
 
@@ -73,13 +73,13 @@ func TestTreeCursorNativeMovementRefreshesNode(t *testing.T) {
 	if !cursor.GoToFirstChildForPoint(wasitter.Point{Row: 0, Column: 1}) {
 		t.Fatal("GoToFirstChildForPoint did not move")
 	}
-	if got := cursor.Node().Type(); got != "array" {
+	if got := cursor.CurrentNode().Type(); got != "array" {
 		t.Fatalf("point movement node = %q, want array", got)
 	}
 
 	cursor.Reset(root)
 	cursor.GotoDescendant(2)
-	if got := cursor.Node().Type(); got == "document" || got == "" {
+	if got := cursor.CurrentNode().Type(); got == "document" || got == "" {
 		t.Fatalf("GotoDescendant did not refresh node, got %q", got)
 	}
 
@@ -109,7 +109,7 @@ func TestTreeCursorNativeVoidGotoDescendantKeepsHandle(t *testing.T) {
 		t.Fatal("bundled cursor unexpectedly used the compatibility fallback")
 	}
 	cursor.GotoDescendant(3)
-	if got := cursor.Node().Type(); got != "number" {
+	if got := cursor.CurrentNode().Type(); got != "number" {
 		t.Fatalf("GotoDescendant(3) node = %q, want number", got)
 	}
 	if after := cursor.Handle(); after == 0 {
@@ -119,7 +119,7 @@ func TestTreeCursorNativeVoidGotoDescendantKeepsHandle(t *testing.T) {
 
 // Reset accepts both the value-shaped wasitter node and the pointer-shaped
 // node used by the upstream Go binding.
-func TestTreeCursorResetAcceptsNodePointer(t *testing.T) {
+func TestTreeCursorResetUsesNodeValue(t *testing.T) {
 	_, _, tree := parseJSON(t, `[1, 2]`)
 	cursor := tree.RootNode().Walk()
 	if cursor == nil {
@@ -128,14 +128,14 @@ func TestTreeCursorResetAcceptsNodePointer(t *testing.T) {
 	defer cursor.Close()
 	root := tree.RootNode()
 	child := root.NamedChild(0)
-	cursor.Reset(&child)
-	if got := cursor.Node(); got.IsNull() || !got.Equal(child) {
-		t.Fatalf("Reset(*Node) positioned at %q, want %q", got.Type(), child.Type())
+	cursor.Reset(child)
+	if got := cursor.CurrentNode(); got.IsNull() || !got.Equal(child) {
+		t.Fatalf("Reset(node) positioned at %q, want %q", got.Type(), child.Type())
 	}
-	cursor.Reset((*wasitter.Node)(nil))
-	if got := cursor.Node(); got.IsNull() {
+	cursor.Reset(wasitter.Node{})
+	if got := cursor.CurrentNode(); got.IsNull() {
 		// An invalid reset is intentionally a no-op, so the prior node remains.
-		t.Fatal("Reset(nil *Node) unexpectedly invalidated cursor")
+		t.Fatal("Reset(null node) unexpectedly invalidated cursor")
 	}
 }
 
@@ -161,27 +161,27 @@ func TestTreeCursorGoFallbackMatchesNativeTraversal(t *testing.T) {
 	if cursor.Handle() != 0 {
 		t.Fatalf("fallback cursor handle = %#x, want zero", cursor.Handle())
 	}
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "array" {
-		t.Fatalf("fallback first child = %q", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "array" {
+		t.Fatalf("fallback first child = %q", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "[" {
-		t.Fatalf("fallback nested first child = %q", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "[" {
+		t.Fatalf("fallback nested first child = %q", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToNextSibling() || cursor.Node().Type() != "number" {
-		t.Fatalf("fallback next sibling = %q", cursor.Node().Type())
+	if !cursor.GoToNextSibling() || cursor.CurrentNode().Type() != "number" {
+		t.Fatalf("fallback next sibling = %q", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToNextNamedSibling() || cursor.Node().Type() != "number" {
-		t.Fatalf("fallback next named sibling = %q", cursor.Node().Type())
+	if !cursor.GoToNextNamedSibling() || cursor.CurrentNode().Type() != "number" {
+		t.Fatalf("fallback next named sibling = %q", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToParent() || cursor.Node().Type() != "array" {
-		t.Fatalf("fallback parent = %q", cursor.Node().Type())
+	if !cursor.GoToParent() || cursor.CurrentNode().Type() != "array" {
+		t.Fatalf("fallback parent = %q", cursor.CurrentNode().Type())
 	}
-	if got := cursor.GotoFirstChildForByte(0); got == nil || *got != 0 || cursor.Node().Type() != "[" {
-		t.Fatalf("fallback byte child = %v/%q", got, cursor.Node().Type())
+	if got := cursor.GotoFirstChildForByte(0); got == nil || *got != 0 || cursor.CurrentNode().Type() != "[" {
+		t.Fatalf("fallback byte child = %v/%q", got, cursor.CurrentNode().Type())
 	}
 	cursor.Reset(root)
 	cursor.GotoDescendant(3)
-	if got := cursor.Node().Type(); got != "number" {
+	if got := cursor.CurrentNode().Type(); got != "number" {
 		t.Fatalf("fallback descendant[3] = %q, want number", got)
 	}
 	if got := cursor.CurrentDepth(); got != 2 {
@@ -268,17 +268,17 @@ func TestTreeCursorGoFallbackPreviousSiblingKeepsDescendantIndex(t *testing.T) {
 	// The inner array's visible sequence is [, true, ,, null, ].
 	inner := tree.RootNode().NamedChild(0).NamedChild(1).NamedChild(0).NamedChild(1)
 	c.Reset(inner)
-	if !c.GoToLastChild() || c.Node().Type() != "]" {
-		t.Fatalf("last child = %q", c.Node().Type())
+	if !c.GoToLastChild() || c.CurrentNode().Type() != "]" {
+		t.Fatalf("last child = %q", c.CurrentNode().Type())
 	}
-	if !c.GoToPrevSibling() || c.Node().Type() != "null" {
-		t.Fatalf("previous sibling = %q", c.Node().Type())
+	if !c.GoToPrevSibling() || c.CurrentNode().Type() != "null" {
+		t.Fatalf("previous sibling = %q", c.CurrentNode().Type())
 	}
 	if got := c.DescendantIndex(); got != 4 {
 		t.Fatalf("previous sibling descendant index = %d, want 4", got)
 	}
-	if !c.GoToNextSibling() || c.Node().Type() != "]" {
-		t.Fatalf("next sibling after previous = %q", c.Node().Type())
+	if !c.GoToNextSibling() || c.CurrentNode().Type() != "]" {
+		t.Fatalf("next sibling after previous = %q", c.CurrentNode().Type())
 	}
 	if got := c.DescendantIndex(); got != 5 {
 		t.Fatalf("next sibling descendant index = %d, want 5", got)
@@ -297,11 +297,11 @@ func TestTreeCursorNativePreviousSiblingPreservesStructuralIndex(t *testing.T) {
 		t.Fatal("inner cursor is nil")
 	}
 	defer cursor.Close()
-	if !cursor.GoToLastChild() || cursor.Node().Type() != "]" {
-		t.Fatalf("last child = %q", cursor.Node().Type())
+	if !cursor.GoToLastChild() || cursor.CurrentNode().Type() != "]" {
+		t.Fatalf("last child = %q", cursor.CurrentNode().Type())
 	}
-	if !cursor.GoToPreviousSibling() || cursor.Node().Type() != "null" {
-		t.Fatalf("previous sibling = %q", cursor.Node().Type())
+	if !cursor.GoToPreviousSibling() || cursor.CurrentNode().Type() != "null" {
+		t.Fatalf("previous sibling = %q", cursor.CurrentNode().Type())
 	}
 	// Tree-sitter 0.25's reverse iterator reports the structural index (1)
 	// here; the visible fallback index is 4 and is tested separately above.
@@ -439,14 +439,14 @@ func TestTreeCursorGotoDescendantOutOfRangeReturnsToRoot(t *testing.T) {
 	if !cursor.GoToFirstChild() {
 		t.Fatal("failed to descend before out-of-range check")
 	}
-	if cursor.Node().Type() == "document" {
+	if cursor.CurrentNode().Type() == "document" {
 		t.Fatal("setup did not descend")
 	}
 	cursor.GotoDescendant(^uint32(0))
-	if got := cursor.Node().Type(); got != "document" {
+	if got := cursor.CurrentNode().Type(); got != "document" {
 		t.Fatalf("out-of-range GotoDescendant node = %q, want document root", got)
 	}
-	if got := cursor.Depth(); got != 0 {
+	if got := cursor.CurrentDepth(); got != 0 {
 		t.Fatalf("out-of-range GotoDescendant depth = %d, want 0", got)
 	}
 }
@@ -540,7 +540,7 @@ func TestTreeCursorResetToAcrossTrees(t *testing.T) {
 		t.Fatal("source cursor did not move")
 	}
 	a.ResetTo(b)
-	if got := a.Node().Type(); got != "object" {
+	if got := a.CurrentNode().Type(); got != "object" {
 		t.Fatalf("cross-tree ResetTo node = %q, want object", got)
 	}
 	// The destination now owns the source tree's native cursor state.  Closing
@@ -548,7 +548,7 @@ func TestTreeCursorResetToAcrossTrees(t *testing.T) {
 	if err := treeA.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if got := a.Node().Type(); got != "object" {
+	if got := a.CurrentNode().Type(); got != "object" {
 		t.Fatalf("cursor after old-tree close = %q, want object", got)
 	}
 }
@@ -582,14 +582,14 @@ func TestTreeCursorResetToAcrossRuntimesFallsBackSafely(t *testing.T) {
 		t.Fatal("source cursor did not move")
 	}
 	a.ResetTo(b)
-	if got := a.Node().Type(); got != "array" {
+	if got := a.CurrentNode().Type(); got != "array" {
 		t.Fatalf("cross-runtime ResetTo node = %q, want array", got)
 	}
 	if got := a.Handle(); got != 0 {
 		t.Fatalf("cross-runtime fallback retained foreign native handle %#x", got)
 	}
-	if !a.GoToFirstChild() || a.Node().Type() != "[" {
-		t.Fatalf("fallback cursor navigation after ResetTo = %q", a.Node().Type())
+	if !a.GoToFirstChild() || a.CurrentNode().Type() != "[" {
+		t.Fatalf("fallback cursor navigation after ResetTo = %q", a.CurrentNode().Type())
 	}
 }
 
@@ -619,8 +619,8 @@ func TestNodeIDStableAcrossWrappers(t *testing.T) {
 	if first.Handle() == second.Handle() {
 		t.Fatal("test expected distinct transient wrapper handles")
 	}
-	if first.Id() == 0 || first.Id() != second.Id() {
-		t.Fatalf("node ids = %#x/%#x, want stable non-zero identity", first.Id(), second.Id())
+	if first.ID() == 0 || first.ID() != second.ID() {
+		t.Fatalf("node ids = %#x/%#x, want stable non-zero identity", first.ID(), second.ID())
 	}
 }
 
@@ -658,8 +658,8 @@ func TestTreeCursorPartialIndexAccessorRebuildsShadow(t *testing.T) {
 		t.Fatal("Tree.Walk returned nil cursor")
 	}
 	defer cursor.Close()
-	if !cursor.GoToFirstChild() || cursor.Node().Type() != "array" {
-		t.Fatalf("first child = %q", cursor.Node().Type())
+	if !cursor.GoToFirstChild() || cursor.CurrentNode().Type() != "array" {
+		t.Fatalf("first child = %q", cursor.CurrentNode().Type())
 	}
 	if got := cursor.DescendantIndex(); got != 1 {
 		t.Fatalf("partial-index child descendant index = %d, want 1", got)
@@ -696,14 +696,14 @@ func TestTreeCursorPartialIndexAccessorKeepsDepthAndParentCoherent(t *testing.T)
 	if !cursor.GoToFirstChild() || cursor.CurrentDepth() != 2 {
 		t.Fatalf("nested first child depth = %d, want 2", cursor.CurrentDepth())
 	}
-	if !cursor.GoToParent() || cursor.Node().Type() != "array" || cursor.CurrentDepth() != 1 {
-		t.Fatalf("parent after nested child = %q depth %d, want array/1", cursor.Node().Type(), cursor.CurrentDepth())
+	if !cursor.GoToParent() || cursor.CurrentNode().Type() != "array" || cursor.CurrentDepth() != 1 {
+		t.Fatalf("parent after nested child = %q depth %d, want array/1", cursor.CurrentNode().Type(), cursor.CurrentDepth())
 	}
 	if !cursor.GoToLastChild() || cursor.CurrentDepth() != 2 {
 		t.Fatalf("last child depth = %d, want 2", cursor.CurrentDepth())
 	}
-	if !cursor.GoToParent() || cursor.Node().Type() != "array" || cursor.CurrentDepth() != 1 {
-		t.Fatalf("parent after last child = %q depth %d, want array/1", cursor.Node().Type(), cursor.CurrentDepth())
+	if !cursor.GoToParent() || cursor.CurrentNode().Type() != "array" || cursor.CurrentDepth() != 1 {
+		t.Fatalf("parent after last child = %q depth %d, want array/1", cursor.CurrentNode().Type(), cursor.CurrentDepth())
 	}
 
 	cursor.Reset(tree.RootNode())

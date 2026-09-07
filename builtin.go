@@ -118,25 +118,7 @@ func NewBuiltinParser(ctx context.Context, language string) (*Parser, *Runtime, 
 	if err != nil {
 		return nil, nil, err
 	}
-	grammar, err := r.LoadLanguage(name)
-	if err != nil {
-		_ = r.Close()
-		return nil, nil, err
-	}
-	p, err := NewParserWithRuntime(r)
-	if err != nil {
-		_ = grammar.Close()
-		_ = r.Close()
-		return nil, nil, err
-	}
-	if err := p.SetLanguage(grammar); err != nil {
-		_ = grammar.Close()
-		_ = p.Close()
-		_ = r.Close()
-		return nil, nil, err
-	}
-	_ = grammar.Close()
-	return p, r, nil
+	return newParserWithOwnedRuntime(r, name)
 }
 
 // NewJavaScriptParser creates a parser configured with the embedded

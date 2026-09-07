@@ -28,18 +28,17 @@ type Iterator struct {
 	invalid error
 }
 
-// NewIterator creates a depth-first or breadth-first iterator rooted at node.
-// Both Node and *Node are accepted to accommodate the value-oriented
-// wasitter API and the pointer-oriented native bindings.
-func NewIterator(value any, mode IterMode) *Iterator {
+// NewIterator creates an iterator rooted at node using the selected
+// traversal order. Nodes returned by the iterator remain usable while their
+// owning tree is open. A null node produces an empty iterator.
+func NewIterator(node Node, mode IterMode) *Iterator {
 	it := &Iterator{mode: mode}
-	node, ok := nodeValueArg(value)
 	// Do not rely on the optional tsw_node_is_null export here.  A number of
 	// older bridge modules expose navigation but omit that convenience
 	// predicate; a non-zero handle paired with a live tree is enough to seed an
 	// iterator.  Check the owning tree directly so a closed node still produces
 	// a terminal iterator rather than one that repeatedly returns ABI errors.
-	if !ok || node.handle == 0 || node.tree == nil || node.tree.ensureOpen() != nil {
+	if node.handle == 0 || node.tree == nil || node.tree.ensureOpen() != nil {
 		it.invalid = io.EOF
 		return it
 	}
@@ -52,7 +51,7 @@ func NewIterator(value any, mode IterMode) *Iterator {
 }
 
 // NewNamedIterator is NewIterator restricted to named descendants.
-func NewNamedIterator(node any, mode IterMode) *Iterator {
+func NewNamedIterator(node Node, mode IterMode) *Iterator {
 	it := NewIterator(node, mode)
 	if it != nil {
 		it.named = true

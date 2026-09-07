@@ -27,7 +27,11 @@ import (
 // the official native grammar release pinned by comparison/go.mod. The mise
 // task selects a single subtest with -run when validating one language.
 func TestGrammarParity(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("..", "internal", "wasm", "assets", "wasitter-*.wasm"))
+	directory := os.Getenv("WASITTER_GRAMMAR_DIR")
+	if directory == "" {
+		directory = filepath.Join("..", "internal", "wasm", "assets")
+	}
+	paths, err := filepath.Glob(filepath.Join(directory, "wasitter-*.wasm"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +110,7 @@ func compareGrammarArtifact(t *testing.T, name, path string) {
 	defer wasmCursor.Close()
 	nativeCursor := native.NewQueryCursor()
 	defer nativeCursor.Close()
-	wasmMatches := wasmMatchViews(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), []byte(source)), []byte(source))
+	wasmMatches := wasmMatchViews(mustQueryResult(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), []byte(source))), []byte(source))
 	nativeMatches := nativeMatchViews(nativeCursor.Matches(nativeQuery, nativeTree.RootNode(), []byte(source)), []byte(source))
 	if !reflect.DeepEqual(wasmMatches, nativeMatches) {
 		t.Fatalf("query matches differ:\nWASM:   %#v\nNative: %#v", wasmMatches, nativeMatches)
@@ -141,7 +145,7 @@ func nativeGrammarFixture(t *testing.T, name string) (string, *native.Language) 
 	case "tsx":
 		return "const element = <div>Hello</div>;\n", native.NewLanguage(nativetypescript.LanguageTSX())
 	default:
-		t.Skipf("no native parity fixture registered for grammar %q", name)
+		t.Fatalf("no native parity fixture registered for grammar %q", name)
 		return "", nil
 	}
 }

@@ -116,7 +116,7 @@ func assertQueryParity(
 	nativeCursor := native.NewQueryCursor()
 	t.Cleanup(func() { _ = wasmCursor.Close() })
 	t.Cleanup(nativeCursor.Close)
-	got := wasmMatchViews(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), source), source)
+	got := wasmMatchViews(mustQueryResult(wasmCursor.Matches(wasmQuery, wasmTree.RootNode(), source)), source)
 	want := nativeMatchViews(nativeCursor.Matches(nativeQuery, nativeTree.RootNode(), source), source)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("query %q matches differ:\nWASM:   %#v\nNative: %#v", querySource, got, want)

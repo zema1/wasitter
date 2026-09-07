@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	goruntime "runtime"
 	"sync"
 	"sync/atomic"
@@ -128,13 +129,15 @@ func NewRuntimeWithOptions(ctx context.Context, wasm []byte, opts RuntimeOptions
 	if err != nil {
 		return closeWithError(fmt.Errorf("instantiate WASM: %w", err))
 	}
+	mem, err := moduleMemory(mod)
+	if err != nil {
+		return closeWithError(err)
+	}
 	r.mod = mod
 	goruntime.SetFinalizer(r, func(rt *Runtime) { _ = rt.Close() })
 	// A valid heap starts after the current memory. This fallback is only
 	// selected when no allocator export exists.
-	if mem := mod.Memory(); mem != nil {
-		r.nextAlloc.Store(mem.Size())
-	}
+	r.nextAlloc.Store(mem.Size())
 	return r, nil
 }
 
@@ -153,15 +156,28 @@ func NewRuntimeFromModule(ctx context.Context, module api.Module) (*Runtime, err
 	if module.IsClosed() {
 		return nil, ErrClosed
 	}
+	mem, err := moduleMemory(module)
+	if err != nil {
+		return nil, err
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	r := &Runtime{ctx: ctx, mod: module, funcs: make(map[string]api.Function), allocSizes: make(map[uint32]uint32)}
-	if mem := module.Memory(); mem != nil {
-		r.nextAlloc.Store(mem.Size())
-	}
+	r.nextAlloc.Store(mem.Size())
 	goruntime.SetFinalizer(r, func(rt *Runtime) { _ = rt.Close() })
 	return r, nil
+}
+
+// wazero can return an api.Memory interface containing a nil pointer when a
+// module has no linear memory. Validate once at construction before Size or
+// any guest-memory operation; Tree-sitter modules require linear memory.
+func moduleMemory(module api.Module) (api.Memory, error) {
+	mem := module.Memory()
+	if mem == nil || (reflect.ValueOf(mem).Kind() == reflect.Pointer && reflect.ValueOf(mem).IsNil()) {
+		return nil, fmt.Errorf("%w: module has no linear memory", ErrUnsupported)
+	}
+	return mem, nil
 }
 
 // Module returns the underlying wazero module. It is primarily useful for
@@ -190,10 +206,6 @@ func (r *Runtime) ABIVersion() uint32 {
 	return v
 }
 
-// AbiVersion is the mixed-case spelling commonly used by Tree-sitter's Go
-// binding. It is an alias of ABIVersion.
-func (r *Runtime) AbiVersion() uint32 { return r.ABIVersion() }
-
 // ABIVersionE returns the module's advertised wasitter wire ABI version.
 // Modules built before the version export are still usable through the
 // compatibility paths, so an absent export is reported as ErrUnsupported
@@ -221,9 +233,6 @@ func (r *Runtime) ABIVersionE() (uint32, error) {
 	}
 	return version, nil
 }
-
-// AbiVersionE is the error-returning alias of ABIVersionE.
-func (r *Runtime) AbiVersionE() (uint32, error) { return r.ABIVersionE() }
 
 // Close releases the WASM module and runtime. It is idempotent.
 func (r *Runtime) Close() error {

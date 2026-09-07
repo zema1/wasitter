@@ -21,6 +21,7 @@ type BuildOptions struct {
 	CCompiler       string
 	CXXCompiler     string
 	OutputDirectory string
+	IncludeLicenses bool
 	Download        DownloadOptions
 	Stdout          io.Writer
 	Stderr          io.Writer
@@ -102,6 +103,11 @@ func BuildGrammar(ctx context.Context, grammar Grammar, options BuildOptions) (B
 		Stderr:           options.Stderr,
 	}); err != nil {
 		return BuildResult{}, fmt.Errorf("compile grammar %q: %w", grammar.Name, err)
+	}
+	if options.IncludeLicenses {
+		if err := exportLicenses(sourceRoot, filepath.Join(options.OutputDirectory, "licenses", grammar.Name)); err != nil {
+			return BuildResult{}, fmt.Errorf("export %s licenses: %w", grammar.Name, err)
+		}
 	}
 	digest, checksum, err := WriteArtifactChecksum(artifact)
 	if err != nil {
