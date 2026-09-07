@@ -1,7 +1,12 @@
 # wasitter
 
+[![CI](https://img.shields.io/github/actions/workflow/status/zema1/wasitter/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/zema1/wasitter/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zema1/wasitter?include_prereleases&style=flat-square)](https://github.com/zema1/wasitter/releases)
+[![Go version](https://img.shields.io/github/go-mod/go-version/zema1/wasitter?style=flat-square&logo=go)](https://go.dev/dl/)
+[![Go Reference](https://img.shields.io/badge/Go-reference-00ADD8?style=flat-square&logo=go)](https://pkg.go.dev/github.com/zema1/wasitter)
+[![License](https://img.shields.io/github/license/zema1/wasitter?style=flat-square)](LICENSE)
+
 [简体中文](README_CN.md) ·
-[Documentation](https://pkg.go.dev/github.com/zema1/wasitter) ·
 [Downloads](https://github.com/zema1/wasitter/releases)
 
 wasitter brings [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) to Go
@@ -21,8 +26,9 @@ with [wazero](https://wazero.io/).
 - Uses [native comparison tests](comparison/README.md) to check that key
   behaviors match upstream Tree-sitter.
 
-> WASM execution and calls between Go and WASM add overhead compared with
-> native bindings. This performance cost is expected.
+> WASM execution and calls between Go and WASM add overhead, making it slightly
+> slower than the native implementation. I'll do my best to address unexpected
+> performance issues.
 
 ## Quick start
 
@@ -128,7 +134,6 @@ configuration, and compatibility.
 
 For adding languages, rebuilding WASM, testing, and releasing, see
 [DEVELOPMENT.md](DEVELOPMENT.md).
-Report vulnerabilities as described in the [security policy](SECURITY.md).
 
 ## License
 

@@ -1,7 +1,12 @@
 # wasitter
 
+[![CI](https://img.shields.io/github/actions/workflow/status/zema1/wasitter/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/zema1/wasitter/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/zema1/wasitter?include_prereleases&style=flat-square)](https://github.com/zema1/wasitter/releases)
+[![Go 版本](https://img.shields.io/github/go-mod/go-version/zema1/wasitter?style=flat-square&logo=go)](https://go.dev/dl/)
+[![Go 文档](https://img.shields.io/badge/Go-reference-00ADD8?style=flat-square&logo=go)](https://pkg.go.dev/github.com/zema1/wasitter)
+[![许可证](https://img.shields.io/github/license/zema1/wasitter?style=flat-square)](LICENSE)
+
 [English](README.md) ·
-[文档](https://pkg.go.dev/github.com/zema1/wasitter) ·
 [下载](https://github.com/zema1/wasitter/releases)
 
 wasitter 是一个 Go 的  [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) 实现，
@@ -17,7 +22,7 @@ wasitter 是一个 Go 的  [Tree-sitter](https://tree-sitter.github.io/tree-sitt
 - 通过[对照测试](comparison/README.md) 确保关键行为和原版保持一致
 
 
-> WASM 执行和跨边界调用会带来额外开销，性能与直接使用原生绑定会略有下降，这是预期的
+> WASM 执行和跨边界调用会带来额外开销，性能相比原版略有下降，我会尽量解决非预期的性能问题
 
 
 ## 快速开始
@@ -117,7 +122,6 @@ WASM 字节，可以直接用 `wasitter.NewParserFromWASM(ctx, wasmBytes)`。
 
 如果要添加语言、重新构建 WASM，
 或了解测试和发布流程，可以阅读 [DEVELOPMENT.md](DEVELOPMENT.md)。
-安全漏洞请按[安全策略](SECURITY.md)中的方式报告。
 
 ## 许可证
 
