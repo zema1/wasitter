@@ -33,6 +33,9 @@ type Tree struct {
 	// native TSNode is a value, but the WASM ABI uses an opaque allocation; all
 	// wrappers are reclaimed when the owning tree closes.
 	nodes map[uint32]struct{}
+	// fieldLanguage caches the immutable language reported by a node of this
+	// tree. It is guarded by rt.mu, alongside the runtime's field ID cache.
+	fieldLanguage uint32
 }
 
 // treePairMu serializes acquisition of two tree read locks. Without this

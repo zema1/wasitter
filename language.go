@@ -720,12 +720,29 @@ func (l *Language) fieldIDForName(name string) (uint16, error) {
 	if err := l.ensureOpen(); err != nil {
 		return 0, err
 	}
-	result, _, err := l.runtime.callWithInput(context.Background(), []string{
+	r := l.runtime
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fieldIDForNameLocked(l.handle, name)
+}
+
+// fieldIDForNameLocked caches successful lookups across all trees using the
+// same immutable guest language. Unknown names are not retained, and the
+// per-language cap bounds storage even for custom modules with unusual field
+// lookup behavior. The caller holds Runtime.mu.
+func (r *Runtime) fieldIDForNameLocked(language uint32, name string) (uint16, error) {
+	if err := r.ensureOpen(); err != nil {
+		return 0, err
+	}
+	if id := r.fieldIDs[language][name]; id != 0 {
+		return id, nil
+	}
+	result, _, err := r.callWithInputLocked(context.Background(), []string{
 		"tsw_language_field_id_for_name",
 		"wasitter_language_field_id_for_name",
 		"language_field_id_for_name",
 		"ts_language_field_id_for_name",
-	}, []uint64{uint64(l.handle)}, []byte(name))
+	}, []uint64{uint64(language)}, []byte(name))
 	if err != nil {
 		return 0, err
 	}
@@ -735,6 +752,16 @@ func (l *Language) fieldIDForName(name string) (uint16, error) {
 	value, ok := checkedU16(result[0])
 	if !ok {
 		return 0, &ABIError{Function: "tsw_language_field_id_for_name", Message: "returned a value outside uint16 range"}
+	}
+	const maxCachedFieldNames = 256
+	if value != 0 && len(r.fieldIDs[language]) < maxCachedFieldNames {
+		if r.fieldIDs == nil {
+			r.fieldIDs = make(map[uint32]map[string]uint16)
+		}
+		if r.fieldIDs[language] == nil {
+			r.fieldIDs[language] = make(map[string]uint16)
+		}
+		r.fieldIDs[language][name] = value
 	}
 	return value, nil
 }

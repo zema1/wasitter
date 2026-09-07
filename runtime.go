@@ -46,6 +46,9 @@ type Runtime struct {
 	mu     sync.Mutex
 	closed atomic.Bool
 	funcs  map[string]api.Function
+	// fieldIDs is scoped to immutable guest language handles, not Go wrappers.
+	// Like funcs, it is accessed only with mu held.
+	fieldIDs map[uint32]map[string]uint16
 	// allocSizes records the requested size for guest allocations made by the
 	// host.  It is primarily needed by wasm-bindgen-style deallocators, whose
 	// ABI takes the allocation size and alignment in addition to the pointer.
@@ -263,6 +266,28 @@ func (r *Runtime) closedState() bool {
 	return r.mod.IsClosed()
 }
 
+// exportedFunctionLocked reuses wazero's callable object. ExportedFunction
+// creates execution state in the compiler backend, so repeated lookups in
+// allocation-heavy paths are expensive. The caller holds mu and performs any
+// lifecycle/signature checks required by its operation (destructors may run
+// after Close has set closed but before it acquires mu).
+func (r *Runtime) exportedFunctionLocked(name string) api.Function {
+	if fn := r.funcs[name]; fn != nil {
+		return fn
+	}
+	if r.mod == nil {
+		return nil
+	}
+	fn := r.mod.ExportedFunction(name)
+	if fn != nil {
+		if r.funcs == nil {
+			r.funcs = make(map[string]api.Function)
+		}
+		r.funcs[name] = fn
+	}
+	return fn
+}
+
 // function resolves the first exported function with one of the supplied
 // names. The aliases let the Go package work with both the canonical tsw_ ABI
 // and early/experimental bridge modules.
@@ -274,11 +299,7 @@ func (r *Runtime) function(names ...string) (api.Function, string, error) {
 		return nil, "", err
 	}
 	for _, name := range names {
-		if fn, ok := r.funcs[name]; ok {
-			return fn, name, nil
-		}
-		if fn := r.mod.ExportedFunction(name); fn != nil {
-			r.funcs[name] = fn
+		if fn := r.exportedFunctionLocked(name); fn != nil {
 			return fn, name, nil
 		}
 	}
@@ -355,7 +376,7 @@ func (r *Runtime) allocLocked(size uint32) (uint32, error) {
 	// understand.
 	allocatorFound := false
 	for _, allocatorName := range allocatorNames {
-		fn := r.mod.ExportedFunction(allocatorName)
+		fn := r.exportedFunctionLocked(allocatorName)
 		if fn == nil {
 			continue
 		}
@@ -484,7 +505,7 @@ func (r *Runtime) freeLocked(ptr uint32) {
 		delete(r.allocSizes, ptr)
 	}
 	for _, freeName := range []string{"tsw_free", "wasitter_free", "free", "__wbindgen_free"} {
-		fn := r.mod.ExportedFunction(freeName)
+		fn := r.exportedFunctionLocked(freeName)
 		if fn == nil {
 			continue
 		}
@@ -560,7 +581,7 @@ func (r *Runtime) freeRangesLocked(ptr, count uint32) {
 		}
 	}
 	for _, name := range []string{"tsw_ranges_free", "wasitter_ranges_free", "ranges_free", "__wbindgen_free", "tsw_free", "wasitter_free", "free"} {
-		fn := r.mod.ExportedFunction(name)
+		fn := r.exportedFunctionLocked(name)
 		if fn == nil {
 			continue
 		}
@@ -649,6 +670,11 @@ func (r *Runtime) callWithInput(ctx context.Context, names []string, prefix []ui
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.callWithInputLocked(ctx, names, prefix, data)
+}
+
+// callWithInputLocked is the transaction above for callers already holding mu.
+func (r *Runtime) callWithInputLocked(ctx context.Context, names []string, prefix []uint64, data []byte) ([]uint64, string, error) {
 	if uint64(len(data)) > uint64(^uint32(0)) {
 		return nil, names[0], fmt.Errorf("wasitter: input exceeds uint32 byte offset")
 	}

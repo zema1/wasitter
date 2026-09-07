@@ -538,13 +538,63 @@ func (n Node) ChildByFieldName(field string) Node {
 		n.tree.mu.RUnlock()
 		return Node{}
 	}
-	result, _, err := n.tree.rt.callWithInput(context.Background(), []string{"tsw_node_child_by_field_name", "wasitter_node_child_by_field_name", "ts_node_child_by_field_name", "node_child_by_field_name"}, []uint64{uint64(n.handle)}, []byte(field))
+	r := n.tree.rt
+	r.mu.Lock()
+	result, err := n.childByFieldNameIDLocked(field)
+	if err != nil {
+		// Legacy bridges may only expose the name-based operation. Keep that
+		// path, including its error behavior, when numeric lookup is unavailable.
+		result, _, err = r.callWithInputLocked(context.Background(), []string{"tsw_node_child_by_field_name", "wasitter_node_child_by_field_name", "ts_node_child_by_field_name", "node_child_by_field_name"}, []uint64{uint64(n.handle)}, []byte(field))
+	}
+	r.mu.Unlock()
 	n.tree.mu.RUnlock()
 	handle, ok := guestNodeHandle(result)
 	if err != nil || !ok || handle == 0 {
 		return Node{}
 	}
 	return n.tree.registerNode(handle)
+}
+
+// childByFieldNameIDLocked avoids allocating a guest string on every child
+// lookup. The caller holds tree.mu for reading and Runtime.mu. Both optional
+// node exports are signature-checked before this path is used.
+func (n Node) childByFieldNameIDLocked(field string) ([]uint64, error) {
+	r := n.tree.rt
+	if err := r.ensureOpen(); err != nil {
+		return nil, err
+	}
+	childFn, _, err := lookupIntegerFunctionLocked(r, []string{
+		"tsw_node_child_by_field_id", "wasitter_node_child_by_field_id",
+		"ts_node_child_by_field_id", "node_child_by_field_id",
+	}, 2, 1, true, true)
+	if err != nil {
+		return nil, err
+	}
+	if n.tree.fieldLanguage == 0 {
+		languageFn, _, err := lookupIntegerFunctionLocked(r, []string{
+			"tsw_node_language", "wasitter_node_language", "ts_node_language", "node_language",
+		}, 1, 1, true, true)
+		if err != nil {
+			return nil, err
+		}
+		result, err := languageFn.Call(context.Background(), uint64(n.handle))
+		if err != nil {
+			return nil, err
+		}
+		language, ok := guestNodeHandle(result)
+		if !ok || language == 0 {
+			return nil, ErrInvalidHandle
+		}
+		n.tree.fieldLanguage = language
+	}
+	id, err := r.fieldIDForNameLocked(n.tree.fieldLanguage, field)
+	if err != nil {
+		return nil, err
+	}
+	if id == 0 {
+		return nil, nil
+	}
+	return childFn.Call(context.Background(), uint64(n.handle), uint64(id))
 }
 
 // ChildByFieldId resolves a numeric field id through the node's language.

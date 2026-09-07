@@ -60,10 +60,48 @@ helpers) accept `any` arguments to preserve source compatibility with older
 Tree-sitter Go bindings. The typed methods provide compile-time checking and
 are the stable examples used in this README.
 
-Parsers and runtimes are safe to close more than once. A parser must be closed
-before its runtime; trees, queries, and cursors should be closed before the
-parser that owns them. A single parser serializes parse operations, while
-separate parsers can run concurrently on the same runtime.
+Parsers and runtimes are safe to close more than once. Close trees, queries,
+cursors, and parsers before their runtime. Trees can outlive the parser that
+created them, but their runtime must remain open.
+
+For batches of files, create a parser/runtime once and reuse it. Close each
+file's tree promptly so its guest nodes are reclaimed:
+
+```go
+parser, runtime, err := wasitter.NewJavaScriptParser(ctx)
+if err != nil {
+    return err
+}
+defer runtime.Close()
+defer parser.Close()
+for _, source := range sources {
+    tree, err := parser.ParseContext(ctx, source, nil)
+    if err != nil {
+        return err
+    }
+    // Read the tree here; retain it only if further work needs its nodes.
+    if err := tree.Close(); err != nil {
+        return err
+    }
+}
+```
+
+A Runtime serializes guest execution, including calls from separate parsers.
+For parallel processing, give each worker its own Runtime and Parser. Workers
+can share a `wazero.CompilationCache` via
+`wazero.NewRuntimeConfig().WithCompilationCache(cache)` in
+`RuntimeOptions.RuntimeConfig` when constructing runtimes
+with `NewRuntimeWithOptions`; keep that cache open until all workers stop.
+A compilation cache saves compilation work, while reusing a runtime also saves
+module instantiation and linear-memory allocation. WASM memory keeps its high
+water mark, so retire a worker's runtime after unusually large jobs if needed.
+
+`ChildByFieldName` caches successful field IDs per guest language and uses the
+numeric accessor on bridges that support it. Existing traversal code benefits
+automatically; older bridges retain name-based lookup. Code with fixed fields
+can also resolve `Language.FieldIDForName` once and use `ChildByFieldID` (or
+`ChildByFieldIDPtr`). Field IDs belong to their language and must not be reused
+across different grammars.
 
 ## Building WASM artifacts
 
