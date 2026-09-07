@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -58,7 +58,7 @@ func builtinWASMBytes(language string) []byte {
 	if language == "" {
 		return nil
 	}
-	b, err := builtinAssets.ReadFile("internal/wasm/assets/sitterwasm-" + language + ".wasm")
+	b, err := builtinAssets.ReadFile("internal/wasm/assets/wasitter-" + language + ".wasm")
 	if err != nil {
 		return nil
 	}
@@ -77,7 +77,7 @@ func NewBuiltinRuntime(ctx context.Context, language string) (*Runtime, error) {
 	name := builtinWASMName(language)
 	wasm := builtinWASMBytes(name)
 	if len(wasm) == 0 {
-		return nil, fmt.Errorf("sitterwasm: embedded grammar %q is unavailable: %w", language, ErrUnsupported)
+		return nil, fmt.Errorf("wasitter: embedded grammar %q is unavailable: %w", language, ErrUnsupported)
 	}
 	r, err := NewRuntime(ctx, wasm)
 	if err != nil {

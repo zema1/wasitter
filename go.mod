@@ -1,4 +1,4 @@
-module github.com/zema1/sitterwasm
+module github.com/zema1/wasitter
 
 go 1.23.0
 

@@ -11,7 +11,7 @@ import (
 
 	native "github.com/tree-sitter/go-tree-sitter"
 	nativejson "github.com/tree-sitter/tree-sitter-json/bindings/go"
-	wasm "github.com/zema1/sitterwasm"
+	wasm "github.com/zema1/wasitter"
 )
 
 type corpusCase struct {
@@ -234,7 +234,7 @@ func TestQueryParity(t *testing.T) {
 		`((number) @number (#match? @number "^(1|2|13)$"))`,
 		`[(true) (false) (null)] @literal`,
 	}
-	source := []byte(`{"name":"sitterwasm","enabled":true,"items":[1,2,13,null],"nested":{"text":"hello"}}`)
+	source := []byte(`{"name":"wasitter","enabled":true,"items":[1,2,13,null],"nested":{"text":"hello"}}`)
 	wasmTree, err := wasmParser.Parse(source, nil)
 	if err != nil {
 		t.Fatalf("WASM parse: %v", err)

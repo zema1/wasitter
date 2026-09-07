@@ -1,8 +1,8 @@
 # Tree-sitter WASM artifacts
 
-Each checked-in `assets/sitterwasm-<language>.wasm` contains the upstream
+Each checked-in `assets/wasitter-<language>.wasm` contains the upstream
 Tree-sitter C runtime (v0.25.0), one generated grammar, and the small
-`sitterwasm_abi.c` adapter. The JSON artifact uses tree-sitter-json v0.24.8;
+`wasitter_abi.c` adapter. The JSON artifact uses tree-sitter-json v0.24.8;
 the JavaScript artifact uses tree-sitter-javascript v0.25.0. Every module is a
 `wasm32-wasi` module and can be loaded by the Go package without CGO. The Go
 runtime installs the WASI preview-1 imports used by the standard C clock and
@@ -22,7 +22,7 @@ mise run build:grammar javascript
 mise run test:grammar javascript
 ```
 
-The task delegates to the CGO-free `cmd/sitterwasm-build` helper and reads
+The task delegates to the CGO-free `cmd/wasitter-build` helper and reads
 `scripts/grammar-registry.json`. It downloads the exact tagged source archive
 in Docker, verifies its archive SHA-256, compiles the parser and any listed
 external scanner, and writes both the WASM file and its adjacent `.sha256` file
@@ -41,16 +41,16 @@ byte-for-byte reproducible. The directory deliberately avoids Go's special
 `vendor` name so these sources and their licenses remain in published module
 zip files.
 
-All build logic is implemented by `cmd/sitterwasm-build` and
+All build logic is implemented by `cmd/wasitter-build` and
 `internal/grammarbuild`. Docker mounts a small Go helper and the checkout; the
 container invokes the compiler through an argument vector, with no shell
 entrypoint or host compiler environment variables.
 
 The checked-in artifacts were built with Zig 0.15.2 in the pinned builder
 image. Their SHA-256 digests are recorded in the sidecars
-`assets/sitterwasm-json.wasm.sha256` and
-`assets/sitterwasm-javascript.wasm.sha256`. Run `mise run wasm-verify` (or
-`go run ./cmd/sitterwasm-build verify-wasm`) to validate the JSON digest
+`assets/wasitter-json.wasm.sha256` and
+`assets/wasitter-javascript.wasm.sha256`. Run `mise run wasm-verify` (or
+`go run ./cmd/wasitter-build verify-wasm`) to validate the JSON digest
 without rebuilding. `mise run test:grammar <language>` validates any selected
 grammar artifact offline before running its semantic parity checks. Builds are
 published through an atomic sibling-file rename, so a compiler failure leaves

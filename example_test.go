@@ -1,14 +1,14 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
 	"fmt"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func ExampleNewJSONParser() {
-	parser, runtime, err := sitterwasm.NewJSONParser(context.Background())
+	parser, runtime, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		panic(err)
 	}

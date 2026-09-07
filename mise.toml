@@ -5,31 +5,31 @@
 
 [tasks.wasm-build]
 description = "Build the bundled Tree-sitter WASM artifact in Docker"
-run = "go run ./cmd/sitterwasm-build build-wasm"
+run = "go run ./cmd/wasitter-build build-wasm"
 
 [tasks.wasm-verify]
 description = "Verify the checked-in WASM artifact and its SHA-256 digest"
-run = "go run ./cmd/sitterwasm-build verify-wasm"
+run = "go run ./cmd/wasitter-build verify-wasm"
 
 [tasks.wasm-check]
 description = "Build WASM in Docker, refresh its digest, and run fixture checks"
 depends = ["wasm-build"]
-run = "go run ./cmd/sitterwasm-build verify-wasm && go test ./... -run 'TestBuiltinJSONWASMExportsRequiredABI|TestJSONParseMatchesNativeSExpressions|TestLanguageMetadata' -count=1"
+run = "go run ./cmd/wasitter-build verify-wasm && go test ./... -run 'TestBuiltinJSONWASMExportsRequiredABI|TestJSONParseMatchesNativeSExpressions|TestLanguageMetadata' -count=1"
 
 [tasks."build:grammar"]
 description = "Build one pinned official Tree-sitter grammar in Docker"
 usage = 'arg "<language>" help="official grammar name, for example javascript"'
-run = 'go run ./cmd/sitterwasm-build build-grammar "${usage_language?}"'
+run = 'go run ./cmd/wasitter-build build-grammar "${usage_language?}"'
 
 [tasks."test:grammar"]
 description = "Test generated grammar artifacts and run available parity checks"
 usage = 'arg "<language>" help="official grammar name, for example javascript"'
-run = 'go run ./cmd/sitterwasm-build test-grammar "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
+run = 'go run ./cmd/wasitter-build test-grammar "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
 
 [tasks."check:grammar"]
 description = "Build one grammar and run its WASM/native checks"
 usage = 'arg "<language>" help="official grammar name, for example javascript"'
-run = 'go run ./cmd/sitterwasm-build check-grammar "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
+run = 'go run ./cmd/wasitter-build check-grammar "${usage_language?}" && go test ./... -run "TestGeneratedGrammarWASM/${usage_language?}" -count=1 && cd comparison && CGO_ENABLED=1 go test -run "TestGrammarParity/${usage_language?}" -count=1 .'
 
 [tasks.native-test]
 description = "Run the CGO native parity suite"

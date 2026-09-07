@@ -1,10 +1,10 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"testing"
 	"time"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // ResetTo used to recursively lock the source cursor (self-reset) and could
@@ -70,7 +70,7 @@ func TestTreeCursorNativeMovementRefreshesNode(t *testing.T) {
 	}
 
 	cursor.Reset(root)
-	if !cursor.GoToFirstChildForPoint(sitterwasm.Point{Row: 0, Column: 1}) {
+	if !cursor.GoToFirstChildForPoint(wasitter.Point{Row: 0, Column: 1}) {
 		t.Fatal("GoToFirstChildForPoint did not move")
 	}
 	if got := cursor.Node().Type(); got != "array" {
@@ -117,7 +117,7 @@ func TestTreeCursorNativeVoidGotoDescendantKeepsHandle(t *testing.T) {
 	}
 }
 
-// Reset accepts both the value-shaped sitterwasm node and the pointer-shaped
+// Reset accepts both the value-shaped wasitter node and the pointer-shaped
 // node used by the upstream Go binding.
 func TestTreeCursorResetAcceptsNodePointer(t *testing.T) {
 	_, _, tree := parseJSON(t, `[1, 2]`)
@@ -132,7 +132,7 @@ func TestTreeCursorResetAcceptsNodePointer(t *testing.T) {
 	if got := cursor.Node(); got.IsNull() || !got.Equal(child) {
 		t.Fatalf("Reset(*Node) positioned at %q, want %q", got.Type(), child.Type())
 	}
-	cursor.Reset((*sitterwasm.Node)(nil))
+	cursor.Reset((*wasitter.Node)(nil))
 	if got := cursor.Node(); got.IsNull() {
 		// An invalid reset is intentionally a no-op, so the prior node remains.
 		t.Fatal("Reset(nil *Node) unexpectedly invalidated cursor")
@@ -140,7 +140,7 @@ func TestTreeCursorResetAcceptsNodePointer(t *testing.T) {
 }
 
 func TestTreeCursorGoFallbackMatchesNativeTraversal(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	// Disable only the cursor constructor aliases.  The Go cursor then keeps a
 	// value-style shadow and exercises the compatibility traversal while all
 	// node accessors still come from the same upstream runtime.
@@ -194,7 +194,7 @@ func TestTreeCursorGoFallbackMatchesNativeTraversal(t *testing.T) {
 // its internal stack; the value-style compatibility path has to enforce it
 // explicitly because Node.NextSibling naturally sees the containing tree.
 func TestTreeCursorGoFallbackHonorsSubtreeRootBoundary(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{"tsw_cursor_new", "tsw_tree_cursor_new"} {
 		wasm = hideWASMExport(t, wasm, name, "old_"+name[4:])
 	}
@@ -222,11 +222,11 @@ func TestTreeCursorGoFallbackHonorsSubtreeRootBoundary(t *testing.T) {
 // subsequent next-sibling move), even when the underlying grammar stores the
 // siblings in a hidden repetition node.
 func TestTreeCursorGoFallbackPreviousSiblingKeepsDescendantIndex(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{"tsw_cursor_new", "tsw_tree_cursor_new"} {
 		wasm = hideWASMExport(t, wasm, name, "old_"+name[4:])
 	}
-	rt, err := sitterwasm.NewRuntime(nil, wasm)
+	rt, err := wasitter.NewRuntime(nil, wasm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +235,7 @@ func TestTreeCursorGoFallbackPreviousSiblingKeepsDescendantIndex(t *testing.T) {
 		rt.Close()
 		t.Fatal(err)
 	}
-	p, err := sitterwasm.NewParserWithRuntime(rt)
+	p, err := wasitter.NewParserWithRuntime(rt)
 	if err != nil {
 		lang.Close()
 		rt.Close()
@@ -311,7 +311,7 @@ func TestTreeCursorNativePreviousSiblingPreservesStructuralIndex(t *testing.T) {
 }
 
 func TestNodeRangeFallbackUsesTreeSitterBoundaryRules(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{
 		"tsw_node_descendant_for_byte_range",
 		"tsw_node_named_descendant_for_byte_range",
@@ -334,7 +334,7 @@ func TestNodeRangeFallbackUsesTreeSitterBoundaryRules(t *testing.T) {
 	if got := root.NamedDescendantForByteRange(0, 0).Type(); got != "array" {
 		t.Fatalf("fallback named point-at-start node = %q, want array", got)
 	}
-	if got := root.DescendantForPointRange(sitterwasm.Point{Row: 0, Column: 0}, sitterwasm.Point{Row: 0, Column: 0}).Type(); got != "[" {
+	if got := root.DescendantForPointRange(wasitter.Point{Row: 0, Column: 0}, wasitter.Point{Row: 0, Column: 0}).Type(); got != "[" {
 		t.Fatalf("fallback point-range node = %q, want [", got)
 	}
 }
@@ -347,7 +347,7 @@ func TestNodeRangeFallbackMatchesNativeIntervals(t *testing.T) {
 	source := []byte(`[1,{"a":[true,null]},3]`)
 	_, _, nativeTree := parseJSON(t, string(source))
 	nativeRoot := nativeTree.RootNode()
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{
 		"tsw_node_descendant_for_byte_range",
 		"tsw_node_named_descendant_for_byte_range",
@@ -356,7 +356,7 @@ func TestNodeRangeFallbackMatchesNativeIntervals(t *testing.T) {
 	} {
 		wasm = hideWASMExport(t, wasm, name, "old_"+name[4:])
 	}
-	rt, err := sitterwasm.NewRuntime(nil, wasm)
+	rt, err := wasitter.NewRuntime(nil, wasm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +365,7 @@ func TestNodeRangeFallbackMatchesNativeIntervals(t *testing.T) {
 		rt.Close()
 		t.Fatal(err)
 	}
-	p, err := sitterwasm.NewParserWithRuntime(rt)
+	p, err := wasitter.NewParserWithRuntime(rt)
 	if err != nil {
 		lang.Close()
 		rt.Close()
@@ -392,7 +392,7 @@ func TestNodeRangeFallbackMatchesNativeIntervals(t *testing.T) {
 		rt.Close()
 	})
 	fallbackRoot := fallbackTree.RootNode()
-	check := func(label string, a, b sitterwasm.Node) {
+	check := func(label string, a, b wasitter.Node) {
 		t.Helper()
 		if a.IsNull() != b.IsNull() || a.Type() != b.Type() || a.StartByte() != b.StartByte() || a.EndByte() != b.EndByte() {
 			t.Fatalf("%s native=%q[%d,%d] fallback=%q[%d,%d]", label, a.Type(), a.StartByte(), a.EndByte(), b.Type(), b.StartByte(), b.EndByte())
@@ -407,8 +407,8 @@ func TestNodeRangeFallbackMatchesNativeIntervals(t *testing.T) {
 	// Include a few points outside the document and every same-row interval.
 	for start := uint32(0); start <= uint32(len(source)+2); start++ {
 		for end := start; end <= uint32(len(source)+2); end++ {
-			a := sitterwasm.Point{Column: start}
-			b := sitterwasm.Point{Column: end}
+			a := wasitter.Point{Column: start}
+			b := wasitter.Point{Column: end}
 			check("point", nativeRoot.DescendantForPointRange(a, b), fallbackRoot.DescendantForPointRange(a, b))
 			check("named point", nativeRoot.NamedDescendantForPointRange(a, b), fallbackRoot.NamedDescendantForPointRange(a, b))
 		}
@@ -416,7 +416,7 @@ func TestNodeRangeFallbackMatchesNativeIntervals(t *testing.T) {
 }
 
 func TestNodeSExpressionFallbackQuotesAnonymousAndFields(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{"tsw_node_to_sexp", "tsw_node_string"} {
 		wasm = hideWASMExport(t, wasm, name, "old_"+name[4:])
 	}
@@ -506,7 +506,7 @@ func TestTreeCursorAfterTreeCloseIsInvalid(t *testing.T) {
 	if got := cursor.GotoFirstChildForByte(0); got != nil {
 		t.Fatalf("GotoFirstChildForByte after tree close = %v, want nil", *got)
 	}
-	if got := cursor.GotoFirstChildForPoint(sitterwasm.Point{}); got != nil {
+	if got := cursor.GotoFirstChildForPoint(wasitter.Point{}); got != nil {
 		t.Fatalf("GotoFirstChildForPoint after tree close = %v, want nil", *got)
 	}
 	if err := cursor.Close(); err != nil {
@@ -636,7 +636,7 @@ func TestNodeChildrenRejectsInvalidResetTarget(t *testing.T) {
 	if got := tree.RootNode().Children(cursor); len(got) == 0 {
 		t.Fatal("expected root children")
 	}
-	if got := (sitterwasm.Node{}).Children(cursor); got != nil {
+	if got := (wasitter.Node{}).Children(cursor); got != nil {
 		t.Fatalf("children of null node = %#v, want nil", got)
 	}
 }
@@ -647,7 +647,7 @@ func TestNodeChildrenRejectsInvalidResetTarget(t *testing.T) {
 // DescendantIndex call after a child/byte move reports the index from before
 // the move.
 func TestTreeCursorPartialIndexAccessorRebuildsShadow(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{"tsw_cursor_current_descendant_index", "tsw_tree_cursor_current_descendant_index"} {
 		wasm = hideWASMExport(t, wasm, name, "old_"+name[4:])
 	}
@@ -678,7 +678,7 @@ func TestTreeCursorPartialIndexAccessorRebuildsShadow(t *testing.T) {
 // or pop that path a second time; doing so makes Depth drift while the first
 // DescendantIndex call still appears correct.
 func TestTreeCursorPartialIndexAccessorKeepsDepthAndParentCoherent(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	for _, name := range []string{"tsw_cursor_current_descendant_index", "tsw_tree_cursor_current_descendant_index"} {
 		wasm = hideWASMExport(t, wasm, name, "old_"+name[4:])
 	}
@@ -739,7 +739,7 @@ func TestTreeCursorConcurrentCloseAndNavigation(t *testing.T) {
 			cursor.GoToParent()
 			cursor.GotoDescendant(uint32(i % 20))
 			cursor.GotoFirstChildForByte(uint32(i))
-			cursor.GotoFirstChildForPoint(sitterwasm.Point{Column: uint32(i)})
+			cursor.GotoFirstChildForPoint(wasitter.Point{Column: uint32(i)})
 			_ = cursor.CurrentNode()
 			_ = cursor.CurrentFieldName()
 			_ = cursor.CurrentFieldID()

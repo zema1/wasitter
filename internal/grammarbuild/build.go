@@ -65,7 +65,7 @@ func BuildGrammar(ctx context.Context, grammar Grammar, options BuildOptions) (B
 		options.Stderr = options.Stdout
 	}
 
-	workDir, err := os.MkdirTemp("", "sitterwasm-grammar-")
+	workDir, err := os.MkdirTemp("", "wasitter-grammar-")
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("create grammar work directory: %w", err)
 	}
@@ -83,7 +83,7 @@ func BuildGrammar(ctx context.Context, grammar Grammar, options BuildOptions) (B
 		return BuildResult{}, fmt.Errorf("parser source %s is unavailable: %w", grammar.Parser, err)
 	}
 
-	artifact := filepath.Join(options.OutputDirectory, "sitterwasm-"+grammar.Name+".wasm")
+	artifact := filepath.Join(options.OutputDirectory, "wasitter-"+grammar.Name+".wasm")
 	extraSources := make([]string, 0, len(grammar.ScannerPaths()))
 	for _, scanner := range grammar.ScannerPaths() {
 		extraSources = append(extraSources, filepath.Join(sourceRoot, filepath.FromSlash(scanner)))
@@ -164,7 +164,7 @@ func FileSHA256(path string) (string, error) {
 
 func writeChecksumAtomic(path, fileName, digest string) error {
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".sitterwasm-checksum-*")
+	tmp, err := os.CreateTemp(dir, ".wasitter-checksum-*")
 	if err != nil {
 		return fmt.Errorf("create checksum temporary file: %w", err)
 	}

@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func NewLookaheadIterator(language *Language, state uint16) (*LookaheadIterator,
 	defer r.mu.Unlock()
 	fn, name, err := r.function(
 		"tsw_lookahead_iterator_new",
-		"sitterwasm_lookahead_iterator_new",
+		"wasitter_lookahead_iterator_new",
 		"ts_lookahead_iterator_new",
 		"lookahead_iterator_new",
 	)
@@ -115,7 +115,7 @@ func (it *LookaheadIterator) Close() error {
 	}
 	_, _, err := r.call(context.Background(), []string{
 		"tsw_lookahead_iterator_delete",
-		"sitterwasm_lookahead_iterator_delete",
+		"wasitter_lookahead_iterator_delete",
 		"ts_lookahead_iterator_delete",
 		"lookahead_iterator_delete",
 	}, uint64(handle))
@@ -143,7 +143,7 @@ func (it *LookaheadIterator) LanguageE() (*Language, error) {
 	}
 	result, name, err := it.runtime.call(it.runtime.Context(), []string{
 		"tsw_lookahead_iterator_language",
-		"sitterwasm_lookahead_iterator_language",
+		"wasitter_lookahead_iterator_language",
 		"ts_lookahead_iterator_language",
 		"lookahead_iterator_language",
 	}, uint64(it.handle.Load()))
@@ -182,7 +182,7 @@ func (it *LookaheadIterator) Symbol() uint16 {
 func (it *LookaheadIterator) SymbolE() (uint16, error) {
 	result, err := it.call([]string{
 		"tsw_lookahead_iterator_current_symbol",
-		"sitterwasm_lookahead_iterator_current_symbol",
+		"wasitter_lookahead_iterator_current_symbol",
 		"ts_lookahead_iterator_current_symbol",
 		"lookahead_iterator_current_symbol",
 	})
@@ -220,7 +220,7 @@ func (it *LookaheadIterator) SymbolNameE() (string, error) {
 	defer r.mu.Unlock()
 	result, name, err := r.callLocked(r.Context(), []string{
 		"tsw_lookahead_iterator_current_symbol_name",
-		"sitterwasm_lookahead_iterator_current_symbol_name",
+		"wasitter_lookahead_iterator_current_symbol_name",
 		"ts_lookahead_iterator_current_symbol_name",
 		"lookahead_iterator_current_symbol_name",
 	}, uint64(it.handle.Load()))
@@ -254,7 +254,7 @@ func (it *LookaheadIterator) Next() bool {
 func (it *LookaheadIterator) NextE() (bool, error) {
 	result, err := it.call([]string{
 		"tsw_lookahead_iterator_next",
-		"sitterwasm_lookahead_iterator_next",
+		"wasitter_lookahead_iterator_next",
 		"ts_lookahead_iterator_next",
 		"lookahead_iterator_next",
 	})
@@ -277,7 +277,7 @@ func (it *LookaheadIterator) ResetState(state uint16) bool {
 func (it *LookaheadIterator) ResetStateE(state uint16) (bool, error) {
 	result, err := it.call([]string{
 		"tsw_lookahead_iterator_reset_state",
-		"sitterwasm_lookahead_iterator_reset_state",
+		"wasitter_lookahead_iterator_reset_state",
 		"ts_lookahead_iterator_reset_state",
 		"lookahead_iterator_reset_state",
 	}, uint64(state))
@@ -310,7 +310,7 @@ func (it *LookaheadIterator) ResetE(language *Language, state uint16) (bool, err
 	}
 	result, err := it.call([]string{
 		"tsw_lookahead_iterator_reset",
-		"sitterwasm_lookahead_iterator_reset",
+		"wasitter_lookahead_iterator_reset",
 		"ts_lookahead_iterator_reset",
 		"lookahead_iterator_reset",
 	}, uint64(language.handle), uint64(state))
@@ -418,7 +418,7 @@ func (it *LookaheadIterator) nextLocked() (bool, error) {
 	}
 	result, _, err := it.runtime.call(it.runtime.Context(), []string{
 		"tsw_lookahead_iterator_next",
-		"sitterwasm_lookahead_iterator_next",
+		"wasitter_lookahead_iterator_next",
 		"ts_lookahead_iterator_next",
 		"lookahead_iterator_next",
 	}, uint64(it.handle.Load()))
@@ -434,7 +434,7 @@ func (it *LookaheadIterator) nextLocked() (bool, error) {
 func (it *LookaheadIterator) symbolLocked() (uint16, error) {
 	result, _, err := it.runtime.call(it.runtime.Context(), []string{
 		"tsw_lookahead_iterator_current_symbol",
-		"sitterwasm_lookahead_iterator_current_symbol",
+		"wasitter_lookahead_iterator_current_symbol",
 		"ts_lookahead_iterator_current_symbol",
 		"lookahead_iterator_current_symbol",
 	}, uint64(it.handle.Load()))
@@ -457,7 +457,7 @@ func (it *LookaheadIterator) symbolNameLocked() (string, error) {
 	defer r.mu.Unlock()
 	result, name, err := r.callLocked(r.Context(), []string{
 		"tsw_lookahead_iterator_current_symbol_name",
-		"sitterwasm_lookahead_iterator_current_symbol_name",
+		"wasitter_lookahead_iterator_current_symbol_name",
 		"ts_lookahead_iterator_current_symbol_name",
 		"lookahead_iterator_current_symbol_name",
 	}, uint64(it.handle.Load()))

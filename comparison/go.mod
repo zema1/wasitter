@@ -1,4 +1,4 @@
-module github.com/zema1/sitterwasm/comparison
+module github.com/zema1/wasitter/comparison
 
 go 1.23.0
 
@@ -15,7 +15,7 @@ require (
 	github.com/tree-sitter/tree-sitter-ruby v0.23.1
 	github.com/tree-sitter/tree-sitter-rust v0.24.2
 	github.com/tree-sitter/tree-sitter-typescript v0.23.2
-	github.com/zema1/sitterwasm v0.0.0
+	github.com/zema1/wasitter v0.0.0
 )
 
 require (
@@ -23,4 +23,4 @@ require (
 	github.com/tetratelabs/wazero v1.10.1 // indirect
 )
 
-replace github.com/zema1/sitterwasm => ..
+replace github.com/zema1/wasitter => ..

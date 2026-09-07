@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -121,7 +121,7 @@ func (p *Parser) newGuestParser() (uint32, error) {
 	r.mu.Lock()
 	fn, name, lookupErr := lookupIntegerFunctionLocked(r, []string{
 		"tsw_parser_new",
-		"sitterwasm_parser_new",
+		"wasitter_parser_new",
 		"ts_parser_new",
 		"parser_new",
 	}, 0, 1, true, true)
@@ -249,7 +249,7 @@ func (p *Parser) SetLanguage(language *Language) error {
 		return err
 	}
 	if language.runtime != parserRuntime {
-		return fmt.Errorf("sitterwasm: language belongs to a different runtime")
+		return fmt.Errorf("wasitter: language belongs to a different runtime")
 	}
 	if p.handle.Load() == 0 {
 		// NewParser(rt) deliberately keeps construction error-free.  If its
@@ -280,7 +280,7 @@ func (p *Parser) SetLanguage(language *Language) error {
 	parserRuntime.mu.Lock()
 	fn, name, lookupErr := lookupIntegerFunctionShapesLocked(parserRuntime, []string{
 		"tsw_parser_set_language",
-		"sitterwasm_parser_set_language",
+		"wasitter_parser_set_language",
 		"ts_parser_set_language",
 		"parser_set_language",
 	}, []int{2}, []int{0, 1}, true, true)
@@ -351,7 +351,7 @@ func (p *Parser) SetIncludedRanges(ranges []Range) error {
 	defer r.mu.Unlock()
 	fn, name, lookupErr := lookupIntegerFunctionShapesLocked(r, []string{
 		"tsw_parser_set_included_ranges",
-		"sitterwasm_parser_set_included_ranges",
+		"wasitter_parser_set_included_ranges",
 		"ts_parser_set_included_ranges",
 		"parser_set_included_ranges",
 	}, []int{3}, []int{0, 1}, true, true)
@@ -438,7 +438,7 @@ func (p *Parser) IncludedRangesE() ([]Range, error) {
 	defer r.mu.Unlock()
 	fn, name, lookupErr := lookupIntegerFunctionShapesLocked(r, []string{
 		"tsw_parser_included_ranges_into",
-		"sitterwasm_parser_included_ranges_into",
+		"wasitter_parser_included_ranges_into",
 		"ts_parser_included_ranges_into",
 		"parser_included_ranges_into",
 	}, []int{3}, []int{1}, true, true)
@@ -476,7 +476,7 @@ func (p *Parser) IncludedRangesE() ([]Range, error) {
 		return p.cachedIncludedRanges(), nil
 	}
 	if uint64(count) > uint64(^uint32(0))/24 {
-		return nil, fmt.Errorf("sitterwasm: included range count overflows wasm32 memory")
+		return nil, fmt.Errorf("wasitter: included range count overflows wasm32 memory")
 	}
 	ptr, allocErr := r.allocLocked(count * 24)
 	if allocErr != nil {
@@ -599,14 +599,14 @@ func (p *Parser) ParseContext(ctx context.Context, input []byte, oldTrees ...*Tr
 // ParseCtx parses with a caller-supplied context.
 //
 // The modern tree-sitter Go binding spells this as ParseCtx(ctx, input,
-// oldTree), which is also sitterwasm's preferred ordering. For compatibility
+// oldTree), which is also wasitter's preferred ordering. For compatibility
 // with early experimental adapters, the old-tree-first ordering is accepted
 // as well. Go does not support overloaded methods, so this entry point uses
 // strict runtime type validation. The strongly typed ParseContext method
 // remains available for code that prefers compile-time argument checking.
 func (p *Parser) ParseCtx(ctx context.Context, args ...any) (*Tree, error) {
 	if len(args) < 1 || len(args) > 2 {
-		return nil, fmt.Errorf("sitterwasm: ParseCtx expects (input, oldTree) or (oldTree, input), got %d arguments", len(args))
+		return nil, fmt.Errorf("wasitter: ParseCtx expects (input, oldTree) or (oldTree, input), got %d arguments", len(args))
 	}
 	var input []byte
 	var oldTree *Tree
@@ -632,7 +632,7 @@ func (p *Parser) ParseCtx(ctx context.Context, args ...any) (*Tree, error) {
 			var treeOK bool
 			oldTree, treeOK = parseParseOptionsTreeArg(args[1])
 			if !treeOK {
-				return nil, fmt.Errorf("sitterwasm: ParseCtx old tree must be *Tree or nil, got %T", args[1])
+				return nil, fmt.Errorf("wasitter: ParseCtx old tree must be *Tree or nil, got %T", args[1])
 			}
 		}
 		return p.ParseContext(ctx, input, oldTree)
@@ -642,29 +642,29 @@ func (p *Parser) ParseCtx(ctx context.Context, args ...any) (*Tree, error) {
 	var treeOK bool
 	oldTree, treeOK = parseParseOptionsTreeArg(args[0])
 	if !treeOK {
-		return nil, fmt.Errorf("sitterwasm: ParseCtx first argument must be []byte, *Tree, or nil, got %T", args[0])
+		return nil, fmt.Errorf("wasitter: ParseCtx first argument must be []byte, *Tree, or nil, got %T", args[0])
 	}
 	if len(args) != 2 {
-		return nil, fmt.Errorf("sitterwasm: ParseCtx old-tree form requires input []byte")
+		return nil, fmt.Errorf("wasitter: ParseCtx old-tree form requires input []byte")
 	}
 	var inputOK bool
 	input, inputOK = args[1].([]byte)
 	if !inputOK && args[1] != nil {
-		return nil, fmt.Errorf("sitterwasm: ParseCtx input must be []byte or nil, got %T", args[1])
+		return nil, fmt.Errorf("wasitter: ParseCtx input must be []byte or nil, got %T", args[1])
 	}
 	return p.ParseContext(ctx, input, oldTree)
 }
 
 // ParseInput parses data supplied lazily by a callback or an Input descriptor.
 //
-// The historical sitterwasm form is ParseInput(read, oldTree), where read is
+// The historical wasitter form is ParseInput(read, oldTree), where read is
 // a function receiving a uint32 byte offset. The smacker/go-tree-sitter form
 // is ParseInput(oldTree, Input). Accepting both forms keeps migration
 // straightforward while ParseInputCtx remains the strongly typed,
 // context-aware descriptor API.
 func (p *Parser) ParseInput(args ...any) (*Tree, error) {
 	if len(args) == 0 || len(args) > 2 {
-		return nil, fmt.Errorf("sitterwasm: ParseInput expects (read, oldTree) or (oldTree, Input), got %d arguments", len(args))
+		return nil, fmt.Errorf("wasitter: ParseInput expects (read, oldTree) or (oldTree, Input), got %d arguments", len(args))
 	}
 	// In the upstream form the old tree is commonly written as an untyped nil:
 	// `ParseInput(nil, Input{Read: ...})`.  Since both the callback and old-tree
@@ -678,14 +678,14 @@ func (p *Parser) ParseInput(args ...any) (*Tree, error) {
 	}
 	if read, ok := normalizeUTF8ReadCallback(args[0]); ok {
 		if read == nil {
-			return nil, fmt.Errorf("sitterwasm: nil input callback")
+			return nil, fmt.Errorf("wasitter: nil input callback")
 		}
 		var oldTree *Tree
 		if len(args) == 2 {
 			var treeOK bool
 			oldTree, treeOK = parseParseOptionsTreeArg(args[1])
 			if !treeOK {
-				return nil, fmt.Errorf("sitterwasm: ParseInput old tree must be *Tree or nil, got %T", args[1])
+				return nil, fmt.Errorf("wasitter: ParseInput old tree must be *Tree or nil, got %T", args[1])
 			}
 		}
 		return p.parseInputRead(read, oldTree)
@@ -694,20 +694,20 @@ func (p *Parser) ParseInput(args ...any) (*Tree, error) {
 	// convenient no-old-tree shorthand.
 	if descriptor, ok := args[0].(Input); ok {
 		if len(args) != 1 {
-			return nil, fmt.Errorf("sitterwasm: ParseInput descriptor form accepts one Input argument")
+			return nil, fmt.Errorf("wasitter: ParseInput descriptor form accepts one Input argument")
 		}
 		return p.ParseInputCtx(p.runtimeContext(), nil, descriptor)
 	}
 	if len(args) != 2 {
-		return nil, fmt.Errorf("sitterwasm: ParseInput first argument must be a callback or *Tree, got %T", args[0])
+		return nil, fmt.Errorf("wasitter: ParseInput first argument must be a callback or *Tree, got %T", args[0])
 	}
 	oldTree, treeOK := parseParseOptionsTreeArg(args[0])
 	if !treeOK {
-		return nil, fmt.Errorf("sitterwasm: ParseInput old tree must be *Tree or nil, got %T", args[0])
+		return nil, fmt.Errorf("wasitter: ParseInput old tree must be *Tree or nil, got %T", args[0])
 	}
 	descriptor, descriptorOK := args[1].(Input)
 	if !descriptorOK {
-		return nil, fmt.Errorf("sitterwasm: ParseInput input must be Input, got %T", args[1])
+		return nil, fmt.Errorf("wasitter: ParseInput input must be Input, got %T", args[1])
 	}
 	return p.ParseInputCtx(p.runtimeContext(), oldTree, descriptor)
 }
@@ -716,7 +716,7 @@ func (p *Parser) ParseInput(args ...any) (*Tree, error) {
 // callback-oriented compatibility aliases.
 func (p *Parser) parseInputRead(read ReadFunc, oldTree *Tree) (*Tree, error) {
 	if read == nil {
-		return nil, fmt.Errorf("sitterwasm: nil input callback")
+		return nil, fmt.Errorf("wasitter: nil input callback")
 	}
 	// Validate ownership before invoking user code. Apart from avoiding
 	// surprising callback side effects after Parser.Close, this keeps callback
@@ -759,7 +759,7 @@ func collectUTF8Input(read func(offset uint32, point Point) []byte) ([]byte, err
 		// allocation larger than the ABI can represent only to reject it after
 		// append has already consumed the memory.
 		if uint64(len(all))+uint64(len(chunk)) > uint64(^uint32(0)) {
-			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
+			return nil, fmt.Errorf("wasitter: input exceeds uint32 byte offset")
 		}
 		all = append(all, chunk...)
 		for _, b := range chunk {
@@ -820,11 +820,11 @@ func utf8BytesFromUTF16(input []uint16) []byte {
 // performs strict argument validation before dispatching to the typed
 // implementation below.  The callback form is materialized into one UTF-8
 // buffer before entering the guest, just like ParseInput.  Returning an error
-// is intentional: it preserves the idiomatic/error-aware API of sitterwasm
+// is intentional: it preserves the idiomatic/error-aware API of wasitter
 // while still allowing source-compatible calls to the upstream shape.
 func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 	if len(args) == 0 {
-		return nil, fmt.Errorf("sitterwasm: ParseWithOptions requires arguments")
+		return nil, fmt.Errorf("wasitter: ParseWithOptions requires arguments")
 	}
 
 	// WASM-oriented form: (context.Context, []byte, *Tree, *ParseOptions).
@@ -832,14 +832,14 @@ func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 	// convenience; the historical four-argument form remains unchanged.
 	if ctx, isContext := args[0].(context.Context); isContext || args[0] == nil {
 		if len(args) < 2 || len(args) > 4 {
-			return nil, fmt.Errorf("sitterwasm: ParseWithOptions context form expects 2 to 4 arguments, got %d", len(args))
+			return nil, fmt.Errorf("wasitter: ParseWithOptions context form expects 2 to 4 arguments, got %d", len(args))
 		}
 		var input []byte
 		if args[1] != nil {
 			var ok bool
 			input, ok = args[1].([]byte)
 			if !ok {
-				return nil, fmt.Errorf("sitterwasm: ParseWithOptions input must be []byte, got %T", args[1])
+				return nil, fmt.Errorf("wasitter: ParseWithOptions input must be []byte, got %T", args[1])
 			}
 		}
 		var oldTree *Tree
@@ -847,7 +847,7 @@ func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 			var ok bool
 			oldTree, ok = parseParseOptionsTreeArg(args[2])
 			if !ok {
-				return nil, fmt.Errorf("sitterwasm: ParseWithOptions old tree must be *Tree or nil, got %T", args[2])
+				return nil, fmt.Errorf("wasitter: ParseWithOptions old tree must be *Tree or nil, got %T", args[2])
 			}
 		}
 		var options *ParseOptions
@@ -855,7 +855,7 @@ func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 			var ok bool
 			options, ok = parseParseOptionsArg(args[3])
 			if !ok {
-				return nil, fmt.Errorf("sitterwasm: ParseWithOptions options must be *ParseOptions, ParseOptions, or nil, got %T", args[3])
+				return nil, fmt.Errorf("wasitter: ParseWithOptions options must be *ParseOptions, ParseOptions, or nil, got %T", args[3])
 			}
 		}
 		return p.parseWithOptionsContext(ctx, input, oldTree, options)
@@ -865,11 +865,11 @@ func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 	// *ParseOptions). A two-argument variant is accepted as the natural alias
 	// of ParseWith and uses no options.
 	if len(args) < 1 || len(args) > 3 {
-		return nil, fmt.Errorf("sitterwasm: ParseWithOptions callback form expects 1 to 3 arguments, got %d", len(args))
+		return nil, fmt.Errorf("wasitter: ParseWithOptions callback form expects 1 to 3 arguments, got %d", len(args))
 	}
 	read, ok := normalizeUTF8ReadCallback(args[0])
 	if !ok || read == nil {
-		return nil, fmt.Errorf("sitterwasm: ParseWithOptions callback must be func(int, Point) []byte or ReadFunc, got %T", args[0])
+		return nil, fmt.Errorf("wasitter: ParseWithOptions callback must be func(int, Point) []byte or ReadFunc, got %T", args[0])
 	}
 	// Validate ownership before invoking user code. Apart from producing a
 	// deterministic lifecycle error for a closed/unbound parser, this avoids
@@ -882,7 +882,7 @@ func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 		var treeOK bool
 		oldTree, treeOK = parseParseOptionsTreeArg(args[1])
 		if !treeOK {
-			return nil, fmt.Errorf("sitterwasm: ParseWithOptions old tree must be *Tree or nil, got %T", args[1])
+			return nil, fmt.Errorf("wasitter: ParseWithOptions old tree must be *Tree or nil, got %T", args[1])
 		}
 	}
 	var options *ParseOptions
@@ -890,7 +890,7 @@ func (p *Parser) ParseWithOptions(args ...any) (*Tree, error) {
 		var optionsOK bool
 		options, optionsOK = parseParseOptionsArg(args[2])
 		if !optionsOK {
-			return nil, fmt.Errorf("sitterwasm: ParseWithOptions options must be *ParseOptions, ParseOptions, or nil, got %T", args[2])
+			return nil, fmt.Errorf("wasitter: ParseWithOptions options must be *ParseOptions, ParseOptions, or nil, got %T", args[2])
 		}
 	}
 	input, err := collectUTF8Input(read)
@@ -938,7 +938,7 @@ func parseParseOptionsArg(value any) (*ParseOptions, bool) {
 }
 
 // normalizeUTF8ReadCallback adapts callback spellings used by the upstream
-// binding (int offsets) and by sitterwasm's fixed-width ReadFunc (uint32
+// binding (int offsets) and by wasitter's fixed-width ReadFunc (uint32
 // offsets) to collectUTF8Input's canonical uint32 callback.
 func normalizeUTF8ReadCallback(value any) (ReadFunc, bool) {
 	switch callback := value.(type) {
@@ -1017,7 +1017,7 @@ func (p *Parser) parseWithOptionsContext(ctx context.Context, input []byte, oldT
 		return nil, context.Canceled
 	}
 	if uint64(len(input)) > uint64(^uint32(0)) {
-		return nil, fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
+		return nil, fmt.Errorf("wasitter: input exceeds uint32 byte offset")
 	}
 	p.mu.Lock()
 	language := p.language
@@ -1034,7 +1034,7 @@ func (p *Parser) parseWithOptionsContext(ctx context.Context, input []byte, oldT
 		// caller starts a parse; reading p.runtime directly here would race and
 		// could incorrectly reject an old tree from the same runtime.
 		if oldTree.runtime() != p.runtimePtr() {
-			return nil, fmt.Errorf("sitterwasm: old tree belongs to a different runtime")
+			return nil, fmt.Errorf("wasitter: old tree belongs to a different runtime")
 		}
 		// Keep the old tree alive while its guest handle is passed to parse.
 		oldTree.mu.RLock()
@@ -1085,7 +1085,7 @@ func (p *Parser) parseWithOptionsContext(ctx context.Context, input []byte, oldT
 	// parser function used by early prototypes.
 	fn, name, lookupErr := lookupIntegerFunctionShapesLocked(r, []string{
 		"tsw_parser_parse",
-		"sitterwasm_parser_parse",
+		"wasitter_parser_parse",
 		"ts_parser_parse",
 		"parser_parse",
 	}, []int{3, 4}, []int{1}, true, true)
@@ -1255,7 +1255,7 @@ func (p *Parser) installCancellationLocked(ctx context.Context, parserHandle uin
 	var fnName string
 	for _, name := range []string{
 		"tsw_parser_set_cancellation_flag",
-		"sitterwasm_parser_set_cancellation_flag",
+		"wasitter_parser_set_cancellation_flag",
 		"ts_parser_set_cancellation_flag",
 		"parser_set_cancellation_flag",
 	} {
@@ -1288,7 +1288,7 @@ func (p *Parser) installCancellationLocked(ctx context.Context, parserHandle uin
 	}
 	if mem == nil || !mem.WriteUint64Le(ptr, initialFlag) {
 		r.freeLocked(ptr)
-		return nil, fmt.Errorf("sitterwasm: cannot initialize cancellation flag")
+		return nil, fmt.Errorf("wasitter: cannot initialize cancellation flag")
 	}
 	result, callErr := setFn.Call(context.Background(), uint64(parserHandle), uint64(ptr))
 	if callErr != nil {
@@ -1355,7 +1355,7 @@ func (p *Parser) installCancellationLocked(ctx context.Context, parserHandle uin
 // parser/tree range accessors in the C shim.
 func encodeRanges(ranges []Range) ([]byte, error) {
 	if uint64(len(ranges)) > uint64(^uint32(0))/24 {
-		return nil, fmt.Errorf("sitterwasm: range count overflows wasm32 memory")
+		return nil, fmt.Errorf("wasitter: range count overflows wasm32 memory")
 	}
 	buf := make([]byte, len(ranges)*24)
 	for i, r := range ranges {
@@ -1396,7 +1396,7 @@ func encodeInputEdit(edit InputEdit) []byte {
 // ParseReader parses all bytes read from rd.
 func (p *Parser) ParseReader(rd io.Reader, oldTrees ...*Tree) (*Tree, error) {
 	if rd == nil {
-		return nil, fmt.Errorf("sitterwasm: nil reader")
+		return nil, fmt.Errorf("wasitter: nil reader")
 	}
 	// Match the callback-based entry points: reject an unusable parser before
 	// invoking caller-owned code. Besides making lifecycle errors predictable,
@@ -1413,13 +1413,13 @@ func (p *Parser) ParseReader(rd io.Reader, oldTrees ...*Tree) (*Tree, error) {
 		// not let a broken or adversarial implementation turn that contract
 		// violation into a slice-bounds panic at the public API boundary.
 		if n < 0 || n > len(buf) {
-			return nil, fmt.Errorf("sitterwasm: invalid reader count %d", n)
+			return nil, fmt.Errorf("wasitter: invalid reader count %d", n)
 		}
 		if n > 0 {
 			data = append(data, buf[:n]...)
 			zeroReads = 0
 			if uint64(len(data)) > uint64(^uint32(0)) {
-				return nil, fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
+				return nil, fmt.Errorf("wasitter: input exceeds uint32 byte offset")
 			}
 		} else {
 			zeroReads++
@@ -1443,7 +1443,7 @@ func (p *Parser) ParseReader(rd io.Reader, oldTrees ...*Tree) (*Tree, error) {
 // rejecting accidental extra arguments deterministically.
 func oneOldTree(oldTrees []*Tree) (*Tree, error) {
 	if len(oldTrees) > 1 {
-		return nil, fmt.Errorf("sitterwasm: expected at most one old tree, got %d", len(oldTrees))
+		return nil, fmt.Errorf("wasitter: expected at most one old tree, got %d", len(oldTrees))
 	}
 	if len(oldTrees) == 0 {
 		return nil, nil
@@ -1476,11 +1476,11 @@ func (p *Parser) SetTimeoutMicros(micros uint64) error {
 	r.mu.Lock()
 	fn, name, lookupErr := lookupIntegerFunctionShapesLocked(r, []string{
 		"tsw_parser_set_timeout_micros",
-		"sitterwasm_parser_set_timeout_micros",
+		"wasitter_parser_set_timeout_micros",
 		"ts_parser_set_timeout_micros",
 		"parser_set_timeout_micros",
 		"tsw_parser_set_timeout",
-		"sitterwasm_parser_set_timeout",
+		"wasitter_parser_set_timeout",
 		"ts_parser_set_timeout",
 		"parser_set_timeout",
 	}, []int{2}, []int{0, 1}, true, true)
@@ -1542,7 +1542,7 @@ func (p *Parser) Reset() error {
 	r.mu.Lock()
 	fn, name, lookupErr := lookupIntegerFunctionShapesLocked(r, []string{
 		"tsw_parser_reset",
-		"sitterwasm_parser_reset",
+		"wasitter_parser_reset",
 		"ts_parser_reset",
 		"parser_reset",
 	}, []int{1}, []int{0, 1}, true, true)
@@ -1611,7 +1611,7 @@ func (p *Parser) SetLogger(logger any) error {
 		}
 	default:
 		p.mu.Unlock()
-		return fmt.Errorf("sitterwasm: unsupported logger type %T", logger)
+		return fmt.Errorf("wasitter: unsupported logger type %T", logger)
 	}
 	p.mu.Unlock()
 	return nil
@@ -1661,7 +1661,7 @@ func (p *Parser) Close() error {
 	// close objects precisely after that context has been canceled or timed out.
 	// Runtime.call would otherwise return before invoking the guest destructor,
 	// leaking the parser handle until the whole module is torn down.
-	_, _, err := p.runtime.call(context.Background(), []string{"tsw_parser_delete", "sitterwasm_parser_delete", "ts_parser_delete", "parser_delete"}, uint64(handle))
+	_, _, err := p.runtime.call(context.Background(), []string{"tsw_parser_delete", "wasitter_parser_delete", "ts_parser_delete", "parser_delete"}, uint64(handle))
 	p.handle.Store(0)
 	goruntime.SetFinalizer(p, nil)
 	// A runtime configured with wazero's WithCloseOnContextDone may have

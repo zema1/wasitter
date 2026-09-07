@@ -1,21 +1,21 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // Defined function types are common when an application attaches metrics or
 // buffering state to a Tree-sitter callback. The compatibility dispatchers
 // receive callbacks through any, so verify they preserve Go's normal
 // assignment compatibility instead of requiring an explicit conversion.
-type namedUint32Reader func(uint32, sitterwasm.Point) []byte
-type namedIntReader func(int, sitterwasm.Point) []byte
+type namedUint32Reader func(uint32, wasitter.Point) []byte
+type namedIntReader func(int, wasitter.Point) []byte
 
 func TestDefinedInputCallbackTypesAreAccepted(t *testing.T) {
-	p, rt, err := sitterwasm.NewJSONParser(context.Background())
+	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestDefinedInputCallbackTypesAreAccepted(t *testing.T) {
 	defer p.Close()
 
 	source := []byte(`[7]`)
-	uintReader := namedUint32Reader(func(offset uint32, _ sitterwasm.Point) []byte {
+	uintReader := namedUint32Reader(func(offset uint32, _ wasitter.Point) []byte {
 		if offset >= uint32(len(source)) {
 			return nil
 		}
@@ -38,7 +38,7 @@ func TestDefinedInputCallbackTypesAreAccepted(t *testing.T) {
 	}
 	_ = tree.Close()
 
-	intReader := namedIntReader(func(offset int, _ sitterwasm.Point) []byte {
+	intReader := namedIntReader(func(offset int, _ wasitter.Point) []byte {
 		if offset < 0 || offset >= len(source) {
 			return nil
 		}

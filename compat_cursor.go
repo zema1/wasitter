@@ -1,10 +1,10 @@
-package sitterwasm
+package wasitter
 
 // NewTreeCursor creates a cursor rooted at node.  The historical
 // smacker/go-tree-sitter binding exposes this constructor, while the modern
 // binding normally creates cursors through Node.Walk.  Keeping the pointer
 // argument here makes the migration path convenient without changing the
-// value-oriented Node API used by sitterwasm.
+// value-oriented Node API used by wasitter.
 //
 // A nil or null node has no meaningful cursor and returns nil, matching the
 // behavior of Node.Walk for an invalid node. Both Node and *Node are accepted

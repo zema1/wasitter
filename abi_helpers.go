@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 )
 
 // wasmIntegerType reports whether a wasm value can safely carry one of the
-// pointer/length/status values used by the sitterwasm ABI.  The bridge uses
+// pointer/length/status values used by the wasitter ABI.  The bridge uses
 // i32 for wasm32 pointers, while a few compatibility modules expose i64
 // results; both are representable at the wazero call boundary.
 func wasmIntegerType(value api.ValueType) bool {

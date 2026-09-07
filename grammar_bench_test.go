@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // BenchmarkGeneratedGrammarParse exercises every grammar artifact checked into
@@ -22,7 +22,7 @@ import (
 // so a new official grammar still has a useful, runnable baseline before a
 // richer language fixture is added.
 func BenchmarkGeneratedGrammarParse(b *testing.B) {
-	paths, err := filepath.Glob(filepath.Join("internal", "wasm", "assets", "sitterwasm-*.wasm"))
+	paths, err := filepath.Glob(filepath.Join("internal", "wasm", "assets", "wasitter-*.wasm"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -36,11 +36,11 @@ func BenchmarkGeneratedGrammarParse(b *testing.B) {
 			continue
 		}
 		b.Run(name, func(b *testing.B) {
-			wasm := sitterwasm.BuiltinWASM(name)
+			wasm := wasitter.BuiltinWASM(name)
 			if len(wasm) == 0 {
 				b.Skip("artifact is not embedded")
 			}
-			rt, err := sitterwasm.NewRuntime(context.Background(), wasm)
+			rt, err := wasitter.NewRuntime(context.Background(), wasm)
 			if err != nil {
 				b.Fatalf("NewRuntime: %v", err)
 			}
@@ -50,7 +50,7 @@ func BenchmarkGeneratedGrammarParse(b *testing.B) {
 				b.Fatalf("LoadLanguage(%q): %v", name, err)
 			}
 			b.Cleanup(func() { _ = language.Close() })
-			parser, err := sitterwasm.NewParserWithRuntime(rt)
+			parser, err := wasitter.NewParserWithRuntime(rt)
 			if err != nil {
 				b.Fatalf("NewParserWithRuntime: %v", err)
 			}
@@ -90,6 +90,6 @@ func BenchmarkGeneratedGrammarParse(b *testing.B) {
 
 func benchmarkGrammarName(path string) string {
 	name := filepath.Base(path)
-	name = strings.TrimPrefix(name, "sitterwasm-")
+	name = strings.TrimPrefix(name, "wasitter-")
 	return strings.TrimSuffix(name, ".wasm")
 }

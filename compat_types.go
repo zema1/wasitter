@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 // Quantifier is the name used by the older smacker/go-tree-sitter binding for
 // a query capture quantifier.  Keep it as an alias so values can be passed to

@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	_ "embed"

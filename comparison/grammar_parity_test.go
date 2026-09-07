@@ -20,14 +20,14 @@ import (
 	nativeruby "github.com/tree-sitter/tree-sitter-ruby/bindings/go"
 	nativerust "github.com/tree-sitter/tree-sitter-rust/bindings/go"
 	nativetypescript "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
-	wasm "github.com/zema1/sitterwasm"
+	wasm "github.com/zema1/wasitter"
 )
 
 // TestGrammarParity discovers every generated artifact and compares it with
 // the official native grammar release pinned by comparison/go.mod. The mise
 // task selects a single subtest with -run when validating one language.
 func TestGrammarParity(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("..", "internal", "wasm", "assets", "sitterwasm-*.wasm"))
+	paths, err := filepath.Glob(filepath.Join("..", "internal", "wasm", "assets", "wasitter-*.wasm"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestGrammarParity(t *testing.T) {
 		t.Fatal("no generated grammar artifacts found")
 	}
 	for _, path := range paths {
-		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "sitterwasm-"), ".wasm")
+		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "wasitter-"), ".wasm")
 		t.Run(name, func(t *testing.T) {
 			compareGrammarArtifact(t, name, path)
 		})

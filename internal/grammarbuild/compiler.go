@@ -131,7 +131,7 @@ func CompileWASM(ctx context.Context, options CompilerOptions) error {
 	if err != nil {
 		return fmt.Errorf("resolve parser source: %w", err)
 	}
-	bridge := filepath.Join(root, "internal", "wasm", "src", "sitterwasm_abi.c")
+	bridge := filepath.Join(root, "internal", "wasm", "src", "wasitter_abi.c")
 	include := filepath.Join(root, "internal", "wasm", "include")
 	for _, required := range []struct {
 		name string
@@ -163,7 +163,7 @@ func CompileWASM(ctx context.Context, options CompilerOptions) error {
 	}
 	output := options.Output
 	if output == "" {
-		output = filepath.Join(root, "internal", "wasm", "assets", "sitterwasm-json.wasm")
+		output = filepath.Join(root, "internal", "wasm", "assets", "wasitter-json.wasm")
 	} else if !filepath.IsAbs(output) {
 		output = filepath.Join(root, output)
 	}
@@ -201,7 +201,7 @@ func CompileWASM(ctx context.Context, options CompilerOptions) error {
 		}
 	}
 
-	buildDir, err := os.MkdirTemp("", "sitterwasm-build-")
+	buildDir, err := os.MkdirTemp("", "wasitter-build-")
 	if err != nil {
 		return fmt.Errorf("create compiler work directory: %w", err)
 	}
@@ -250,7 +250,7 @@ func CompileWASM(ctx context.Context, options CompilerOptions) error {
 		objects = append(objects, object)
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(output), ".sitterwasm-wasm-*")
+	tmp, err := os.CreateTemp(filepath.Dir(output), ".wasitter-wasm-*")
 	if err != nil {
 		return fmt.Errorf("create temporary wasm output: %w", err)
 	}
@@ -434,7 +434,7 @@ func compilerArgs(zig bool, compiler string, cxx bool, runtimeDir, grammarDir, p
 	}
 	args = append(args,
 		"-fvisibility=hidden", "-D__EMSCRIPTEN__", "-D_POSIX_C_SOURCE=200112L", "-D_DEFAULT_SOURCE",
-		"-DSITTERWASM_LANGUAGE_FN="+function, "-DSITTERWASM_LANGUAGE_NAME="+nameDefine,
+		"-DWASITTER_LANGUAGE_FN="+function, "-DWASITTER_LANGUAGE_NAME="+nameDefine,
 		"-I"+include, "-I"+filepath.Join(runtimeDir, "include"), "-I"+runtimeDir,
 		"-I"+grammarDir, "-I"+filepath.Dir(parser),
 	)

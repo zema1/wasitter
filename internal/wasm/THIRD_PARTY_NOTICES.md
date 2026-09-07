@@ -28,12 +28,12 @@ The portable endian compatibility header identifies itself as public domain;
 its original notice is preserved in
 [`third_party/tree-sitter/portable/endian.h`](third_party/tree-sitter/portable/endian.h).
 
-`src/sitterwasm_abi.c` and `include/sitterwasm_abi.h` are original shim code
+`src/wasitter_abi.c` and `include/wasitter_abi.h` are original shim code
 for this project and are MIT licensed with the rest of the repository.
 
 ## Embedded WASM toolchain code
 
-The checked-in `assets/sitterwasm-*.wasm` artifacts are produced with Zig
+The checked-in `assets/wasitter-*.wasm` artifacts are produced with Zig
 0.15.2 by the pinned Docker builder in `docker/wasm-builder/Dockerfile`. In
 addition to the sources described above, each artifact statically links the
 WASI C library and compiler runtime support selected by Zig.

@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // The official Go binding intentionally treats an any-* predicate as an
@@ -28,7 +28,7 @@ func TestAnyTextPredicatesMatchOfficialBinding(t *testing.T) {
 		{name: "any-not-eq", src: `((number) @n (#any-not-eq? @n "1"))`, count: 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(p.Language(), tc.src)
+			q, err := wasitter.NewQuery(p.Language(), tc.src)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -43,7 +43,7 @@ func TestAnyTextPredicatesMatchOfficialBinding(t *testing.T) {
 func TestQueryMetadataPopulatesCaptureIdAliases(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestAnyOfEmptyLiteralListIsNotDropped(t *testing.T) {
 		{name: "not-any-of", src: `((number) @n (#not-any-of? @n))`, count: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(p.Language(), tc.src)
+			q, err := wasitter.NewQuery(p.Language(), tc.src)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,7 +93,7 @@ func TestAnyOfEmptyLiteralListIsNotDropped(t *testing.T) {
 func TestNativePredicateFilteringIsPerPattern(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(),
+	q, err := wasitter.NewQuery(p.Language(),
 		"((number) @only_one (#eq? @only_one \"1\"))\n((number) @all_numbers)")
 	if err != nil {
 		t.Fatal(err)
@@ -123,7 +123,7 @@ func TestPredicateExtractionKeepsNamesCaseSensitive(t *testing.T) {
 	// the host has no implementation for #MATCH?, it must leave both matches
 	// intact; parsing it as the lowercase built-in #match? would incorrectly
 	// filter the result.
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#MATCH? @n "1"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#MATCH? @n "1"))`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,11 +141,11 @@ func TestPredicateExtractionKeepsNamesCaseSensitive(t *testing.T) {
 // grammars are commonly written as `#set! name value` (without quotes), and
 // older grammars use the `.eq?` prefix instead of `#eq?`.
 func TestFallbackBareAndDotPredicatesAndPropertyMetadata(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
 
-	q, err := sitterwasm.NewQuery(tree.Language(),
+	q, err := wasitter.NewQuery(tree.Language(),
 		`((number) @n (.eq? @n one) (#set! kind number) (#is? kind))`)
 	if err != nil {
 		t.Fatalf("fallback bare/dot query: %v", err)
@@ -173,7 +173,7 @@ func TestFallbackBareAndDotPredicatesAndPropertyMetadata(t *testing.T) {
 }
 
 func TestFallbackBarePredicateValuesMatch(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
 	for _, tc := range []struct {
@@ -186,7 +186,7 @@ func TestFallbackBarePredicateValuesMatch(t *testing.T) {
 		{name: "any-of", src: `((number) @n (#any-of? @n 1 2))`, want: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(tree.Language(), tc.src)
+			q, err := wasitter.NewQuery(tree.Language(), tc.src)
 			if err != nil {
 				t.Fatalf("NewQuery(%q): %v", tc.src, err)
 			}
@@ -206,13 +206,13 @@ func TestPredicateCaptureNamesMayContainDots(t *testing.T) {
 		name string
 		wasm []byte
 	}{
-		{name: "native", wasm: sitterwasm.BuiltinJSONWASM()},
-		{name: "fallback", wasm: hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")},
+		{name: "native", wasm: wasitter.BuiltinJSONWASM()},
+		{name: "fallback", wasm: hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tree := parseWithWASM(t, tc.wasm)
 			defer tree.Close()
-			q, err := sitterwasm.NewQuery(tree.Language(), `((number) @field.name (#eq? @field.name "9"))`)
+			q, err := wasitter.NewQuery(tree.Language(), `((number) @field.name (#eq? @field.name "9"))`)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -231,12 +231,12 @@ func TestPredicateCaptureNamesMayContainDots(t *testing.T) {
 func TestQueryIteratorUsesExplicitTextBufferForPredicates(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#eq? @n "2"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "2"))`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 
 	// The node's byte range is identical in both one-element arrays.  The
@@ -286,12 +286,12 @@ func TestPredicateNextCapturePreservesNativeOrder(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(p.Language(), tc.source)
+			q, err := wasitter.NewQuery(p.Language(), tc.source)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer q.Close()
-			c := sitterwasm.NewQueryCursor()
+			c := wasitter.NewQueryCursor()
 			defer c.Close()
 			if err := c.Exec(q, tree.RootNode()); err != nil {
 				t.Fatal(err)
@@ -316,9 +316,9 @@ func TestPredicateNextCapturePreservesNativeOrder(t *testing.T) {
 // accepted wrappers alive (and does not free them twice) while evaluating a
 // text predicate.
 func TestPredicateNextCaptureWithoutFullMatchABI(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(),
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(),
 		"tsw_query_cursor_next_capture_match", "old_query_cursor_capture_match_____")
-	rt, err := sitterwasm.NewRuntime(context.Background(), wasm)
+	rt, err := wasitter.NewRuntime(context.Background(), wasm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestPredicateNextCaptureWithoutFullMatchABI(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lang.Close()
-	p, err := sitterwasm.NewParserWithRuntime(rt)
+	p, err := wasitter.NewParserWithRuntime(rt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,11 +340,11 @@ func TestPredicateNextCaptureWithoutFullMatchABI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, err := sitterwasm.NewQuery(lang, `((number) @n (#eq? @n "1"))`)
+	q, err := wasitter.NewQuery(lang, `((number) @n (#eq? @n "1"))`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
 	}

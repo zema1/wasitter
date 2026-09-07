@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 // The compatibility query matcher intentionally implements only a small
 // subset of Tree-sitter's execution semantics.  It must nevertheless reject

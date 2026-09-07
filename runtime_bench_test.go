@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -17,7 +17,7 @@ func benchmarkWASM(b *testing.B) []byte {
 		return data
 	}
 	candidates := []string{
-		filepath.Join("internal", "wasm", "assets", "sitterwasm-json.wasm"),
+		filepath.Join("internal", "wasm", "assets", "wasitter-json.wasm"),
 		filepath.Join("testdata", "json.wasm"),
 		filepath.Join(".tmp", "json.wasm"),
 		filepath.Join(".tmp", "json-small.wasm"),

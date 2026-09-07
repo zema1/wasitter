@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"encoding/binary"
@@ -112,12 +112,12 @@ func TestABIErrorFormatting(t *testing.T) {
 		{
 			name: "with message",
 			err:  &ABIError{Function: "st_parse", Message: "invalid input"},
-			want: "sitterwasm: st_parse: invalid input",
+			want: "wasitter: st_parse: invalid input",
 		},
 		{
 			name: "without message",
 			err:  &ABIError{Function: "st_parse"},
-			want: "sitterwasm: st_parse failed",
+			want: "wasitter: st_parse failed",
 		},
 	}
 	for _, tc := range tests {

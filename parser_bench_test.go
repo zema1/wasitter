@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"bytes"
@@ -6,20 +6,20 @@ import (
 	"runtime"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 var benchmarkJSON = []byte(`{
-  "name": "sitterwasm",
+  "name": "wasitter",
   "enabled": true,
   "version": 1,
   "items": [1, 2, 3, 5, 8, 13, 21],
   "nested": {"null": null, "text": "hello", "unicode": "树🌳"}
 }`)
 
-func benchmarkParser(b *testing.B) (*sitterwasm.Parser, *sitterwasm.Runtime) {
+func benchmarkParser(b *testing.B) (*wasitter.Parser, *wasitter.Runtime) {
 	b.Helper()
-	p, rt, err := sitterwasm.NewJSONParser(context.Background())
+	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		b.Fatalf("NewJSONParser: %v", err)
 	}
@@ -66,7 +66,7 @@ func BenchmarkJSONParseReuseTree(b *testing.B) {
 	newSource = append(newSource, []byte("false")...)
 	newSource = append(newSource, old[index+len(needle):]...)
 	start := uint32(index)
-	edit := sitterwasm.InputEdit{
+	edit := wasitter.InputEdit{
 		StartByte:   start,
 		OldEndByte:  start + uint32(len(needle)),
 		NewEndByte:  start + uint32(len("false")),
@@ -97,14 +97,14 @@ func BenchmarkJSONParseReuseTree(b *testing.B) {
 	}
 }
 
-func pointAt(source []byte, offset int) sitterwasm.Point {
+func pointAt(source []byte, offset int) wasitter.Point {
 	if offset < 0 {
 		offset = 0
 	}
 	if offset > len(source) {
 		offset = len(source)
 	}
-	var p sitterwasm.Point
+	var p wasitter.Point
 	for _, c := range source[:offset] {
 		if c == '\n' {
 			p.Row++
@@ -127,7 +127,7 @@ func BenchmarkJSONNodeTraversal(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		stack := []sitterwasm.Node{tree.RootNode()}
+		stack := []wasitter.Node{tree.RootNode()}
 		for len(stack) > 0 {
 			last := len(stack) - 1
 			n := stack[last]
@@ -161,13 +161,13 @@ func BenchmarkJSONParseParallel(b *testing.B) {
 		b.Cleanup(func() { runtime.GOMAXPROCS(previousProcs) })
 	}
 	type parserRuntime struct {
-		parser  *sitterwasm.Parser
-		runtime *sitterwasm.Runtime
+		parser  *wasitter.Parser
+		runtime *wasitter.Runtime
 	}
 	pool := make(chan parserRuntime, workers)
 	instances := make([]parserRuntime, 0, workers)
 	for i := 0; i < workers; i++ {
-		p, rt, err := sitterwasm.NewJSONParser(context.Background())
+		p, rt, err := wasitter.NewJSONParser(context.Background())
 		if err != nil {
 			b.Fatalf("NewJSONParser: %v", err)
 		}

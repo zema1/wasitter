@@ -1,11 +1,11 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"errors"
 	"io"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 type readerFunc func([]byte) (int, error)
@@ -13,13 +13,13 @@ type readerFunc func([]byte) (int, error)
 func (f readerFunc) Read(p []byte) (int, error) { return f(p) }
 
 func TestParseReaderChecksLifecycleBeforeReading(t *testing.T) {
-	var parser sitterwasm.Parser
+	var parser wasitter.Parser
 	called := false
 	_, err := parser.ParseReader(readerFunc(func([]byte) (int, error) {
 		called = true
 		return 0, io.EOF
 	}))
-	if !errors.Is(err, sitterwasm.ErrNoRuntime) {
+	if !errors.Is(err, wasitter.ErrNoRuntime) {
 		t.Fatalf("ParseReader on an unbound parser = %v, want ErrNoRuntime", err)
 	}
 	if called {
@@ -28,7 +28,7 @@ func TestParseReaderChecksLifecycleBeforeReading(t *testing.T) {
 }
 
 func TestParseReaderRejectsInvalidReadCount(t *testing.T) {
-	parser, runtime, err := sitterwasm.NewJSONParser(nil)
+	parser, runtime, err := wasitter.NewJSONParser(nil)
 	if err != nil {
 		t.Fatalf("NewJSONParser: %v", err)
 	}

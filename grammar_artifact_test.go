@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
-	"github.com/zema1/sitterwasm/internal/grammarbuild"
+	wasitter "github.com/zema1/wasitter"
+	"github.com/zema1/wasitter/internal/grammarbuild"
 )
 
 // TestGeneratedGrammarWASM is intentionally artifact-driven. A grammar task
-// can add another sitterwasm-<name>.wasm file without requiring a new Go test;
+// can add another wasitter-<name>.wasm file without requiring a new Go test;
 // the test discovers it, loads its exported language, and parses a minimal
 // representative input.
 func TestGeneratedGrammarWASM(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("internal", "wasm", "assets", "sitterwasm-*.wasm"))
+	paths, err := filepath.Glob(filepath.Join("internal", "wasm", "assets", "wasitter-*.wasm"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 		t.Fatalf("LoadRegistry: %v", err)
 	}
 	for _, path := range paths {
-		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "sitterwasm-"), ".wasm")
+		name := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(path), "wasitter-"), ".wasm")
 		t.Run(name, func(t *testing.T) {
 			grammar, err := registry.Lookup(name)
 			if err != nil {
@@ -44,7 +44,7 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 			if _, err := grammarbuild.VerifyArtifact(path, path+".sha256"); err != nil {
 				t.Fatalf("VerifyArtifact: %v", err)
 			}
-			rt, err := sitterwasm.NewRuntime(context.Background(), wasm)
+			rt, err := wasitter.NewRuntime(context.Background(), wasm)
 			if err != nil {
 				t.Fatalf("NewRuntime: %v", err)
 			}
@@ -53,7 +53,7 @@ func TestGeneratedGrammarWASM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("LoadLanguage(%q): %v", name, err)
 			}
-			parser, err := sitterwasm.NewParserWithRuntime(rt)
+			parser, err := wasitter.NewParserWithRuntime(rt)
 			if err != nil {
 				t.Fatalf("NewParserWithRuntime: %v", err)
 			}
@@ -133,7 +133,7 @@ func generatedGrammarSample(language string) string {
 }
 
 func TestJavaScriptConvenienceParser(t *testing.T) {
-	parser, rt, err := sitterwasm.NewJavaScriptParser(context.Background())
+	parser, rt, err := wasitter.NewJavaScriptParser(context.Background())
 	if err != nil {
 		t.Fatalf("NewJavaScriptParser: %v", err)
 	}
@@ -151,19 +151,19 @@ func TestJavaScriptConvenienceParser(t *testing.T) {
 
 func TestBuiltinGrammarLookup(t *testing.T) {
 	for _, language := range []string{"json", "javascript"} {
-		data := sitterwasm.BuiltinWASM(language)
+		data := wasitter.BuiltinWASM(language)
 		if len(data) < 8 || string(data[:4]) != "\x00asm" {
 			t.Fatalf("BuiltinWASM(%q) returned an invalid module (%d bytes)", language, len(data))
 		}
 	}
-	if got := sitterwasm.BuiltinWASM("../json"); got != nil {
+	if got := wasitter.BuiltinWASM("../json"); got != nil {
 		t.Fatal("BuiltinWASM accepted a path traversal name")
 	}
-	if got := sitterwasm.BuiltinWASM("not-checked-in"); got != nil {
+	if got := wasitter.BuiltinWASM("not-checked-in"); got != nil {
 		t.Fatal("BuiltinWASM returned an unregistered artifact")
 	}
 
-	rt, err := sitterwasm.NewBuiltinRuntime(context.Background(), " JavaScript ")
+	rt, err := wasitter.NewBuiltinRuntime(context.Background(), " JavaScript ")
 	if err != nil {
 		t.Fatalf("NewBuiltinRuntime(normalized name): %v", err)
 	}

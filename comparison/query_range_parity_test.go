@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	native "github.com/tree-sitter/go-tree-sitter"
-	wasm "github.com/zema1/sitterwasm"
+	wasm "github.com/zema1/wasitter"
 )
 
 // QueryMatches/QueryCaptures in the upstream binding are lazy views over a
-// native cursor. The public sitterwasm values retain slice semantics, so the
+// native cursor. The public wasitter values retain slice semantics, so the
 // range setters replay a private shadow cursor when a caller has already
 // consumed part of the materialized view. Keep this small parity matrix here
 // because rooted patterns expose the in-progress-state behavior that a simple

@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -72,14 +72,14 @@ func (l *Language) clone() *Language {
 }
 
 // NewLanguage resolves a language export in rt. With no export name it tries
-// the canonical tsw_language/sitterwasm_language exports. A grammar-specific
+// the canonical tsw_language/wasitter_language exports. A grammar-specific
 // name such as "json" is expanded to tree_sitter_json when appropriate.
 func NewLanguage(rt *Runtime, export ...string) (*Language, error) {
 	if rt == nil {
 		return nil, ErrNoRuntime
 	}
 	if len(export) > 1 {
-		return nil, fmt.Errorf("sitterwasm: expected at most one language export, got %d", len(export))
+		return nil, fmt.Errorf("wasitter: expected at most one language export, got %d", len(export))
 	}
 	name := ""
 	if len(export) != 0 {
@@ -107,7 +107,7 @@ func (r *Runtime) LoadLanguage(name string) (*Language, error) {
 	if err != nil {
 		// Generated grammars commonly export only their canonical
 		// `tree_sitter_<name>` constructor and do not include the generic
-		// sitterwasm bridge alias.  When the caller omitted a name, discover one
+		// wasitter bridge alias.  When the caller omitted a name, discover one
 		// such constructor from the module's export table.  Keep this fallback
 		// deterministic (sorted names), and validate the signature before calling
 		// so unrelated exports cannot trigger a WASM arity/type trap.
@@ -132,7 +132,7 @@ func (r *Runtime) LoadLanguage(name string) (*Language, error) {
 		return nil, &ABIError{Function: resolved, Message: callErr.Error()}
 	}
 	if len(result) == 0 {
-		return nil, fmt.Errorf("sitterwasm: language export %q returned a null handle", resolved)
+		return nil, fmt.Errorf("wasitter: language export %q returned a null handle", resolved)
 	}
 	handle, ok := checkedU32(result[0])
 	if !ok || handle == 0 {
@@ -187,7 +187,7 @@ func discoverLanguageExportLocked(r *Runtime) (api.Function, string, error) {
 // the module's default grammar.
 func (r *Runtime) Language(name ...string) (*Language, error) {
 	if len(name) > 1 {
-		return nil, fmt.Errorf("sitterwasm: expected at most one language name, got %d", len(name))
+		return nil, fmt.Errorf("wasitter: expected at most one language name, got %d", len(name))
 	}
 	if len(name) == 0 {
 		return r.LoadLanguage("")
@@ -198,7 +198,7 @@ func (r *Runtime) Language(name ...string) (*Language, error) {
 func languageAliases(name string) []string {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return []string{"tsw_language", "sw_language", "st_language", "sitterwasm_language", "language", "tree_sitter_language"}
+		return []string{"tsw_language", "sw_language", "st_language", "wasitter_language", "language", "tree_sitter_language"}
 	}
 	seen := make(map[string]struct{}, 8)
 	result := make([]string, 0, 6)
@@ -230,8 +230,8 @@ func languageAliases(name string) []string {
 	if !strings.HasPrefix(name, "st_") {
 		add("st_" + name)
 	}
-	if !strings.HasPrefix(name, "sitterwasm_") {
-		add("sitterwasm_" + name)
+	if !strings.HasPrefix(name, "wasitter_") {
+		add("wasitter_" + name)
 	}
 	// A module produced by the bundled build script has one statically linked
 	// grammar and exposes the generic tsw_language entry point. Keep these
@@ -240,12 +240,12 @@ func languageAliases(name string) []string {
 	add("tsw_language")
 	add("sw_language")
 	add("st_language")
-	add("sitterwasm_language")
+	add("wasitter_language")
 	// A module normally contains one statically linked grammar and exposes it
 	// through tsw_language regardless of the human-readable name requested by
 	// the caller.
 	add("tsw_language")
-	add("sitterwasm_language")
+	add("wasitter_language")
 	add("language")
 	return result
 }
@@ -326,11 +326,11 @@ func (l *Language) NameE() (string, error) {
 	// arity before calling so both forms remain safe.
 	return l.callLanguageString([]string{
 		"tsw_language_name",
-		"sitterwasm_language_name",
+		"wasitter_language_name",
 		"language_name",
 		"ts_language_name",
 		"tsw_language_name_ptr",
-		"sitterwasm_language_name_ptr",
+		"wasitter_language_name_ptr",
 		"language_name_ptr",
 	})
 }
@@ -356,11 +356,11 @@ func (l *Language) ABIVersionE() (uint32, error) {
 	r.mu.Lock()
 	fn, name, err := lookupIntegerFunctionAllowedLocked(r, []string{
 		"tsw_language_abi_version_for",
-		"sitterwasm_language_abi_version_for",
+		"wasitter_language_abi_version_for",
 		"language_abi_version_for",
 		"ts_language_abi_version_for",
 		"tsw_language_abi_version",
-		"sitterwasm_language_abi_version",
+		"wasitter_language_abi_version",
 		"language_abi_version",
 		"ts_language_abi_version",
 	}, []int{0, 1}, 1, true, true)
@@ -407,16 +407,16 @@ func (l *Language) VersionE() (uint32, error) {
 	}
 	return l.callLanguageUint([]string{
 		"tsw_language_version_for",
-		"sitterwasm_language_version_for",
+		"wasitter_language_version_for",
 		"language_version_for",
 		"ts_language_version_for",
 		"tsw_language_version",
-		"sitterwasm_language_version",
+		"wasitter_language_version",
 		"language_version",
 		"ts_language_version",
 		"tsw_language_abi_version_for",
 		"tsw_language_abi_version",
-		"sitterwasm_language_abi_version",
+		"wasitter_language_abi_version",
 		"language_abi_version",
 		"ts_language_abi_version",
 	})
@@ -441,14 +441,14 @@ func (l *Language) MetadataE() (*LanguageMetadata, error) {
 	// on a particular C struct layout.
 	major, majorErr := l.callLanguageUint([]string{
 		"tsw_language_metadata_major",
-		"sitterwasm_language_metadata_major",
+		"wasitter_language_metadata_major",
 		"language_metadata_major",
 		"ts_language_metadata_major",
 	})
 	if majorErr == nil {
 		minor, err := l.callLanguageUint([]string{
 			"tsw_language_metadata_minor",
-			"sitterwasm_language_metadata_minor",
+			"wasitter_language_metadata_minor",
 			"language_metadata_minor",
 			"ts_language_metadata_minor",
 		})
@@ -457,7 +457,7 @@ func (l *Language) MetadataE() (*LanguageMetadata, error) {
 		}
 		patch, err := l.callLanguageUint([]string{
 			"tsw_language_metadata_patch",
-			"sitterwasm_language_metadata_patch",
+			"wasitter_language_metadata_patch",
 			"language_metadata_patch",
 			"ts_language_metadata_patch",
 		})
@@ -478,19 +478,19 @@ func (l *Language) MetadataE() (*LanguageMetadata, error) {
 	defer r.mu.Unlock()
 	fn, name, err := lookupIntegerFunctionShapesLocked(r, []string{
 		"tsw_language_metadata_version",
-		"sitterwasm_language_metadata_version",
+		"wasitter_language_metadata_version",
 		"language_metadata_version",
 		"ts_language_metadata_version",
 		"tsw_language_metadata_packed",
-		"sitterwasm_language_metadata_packed",
+		"wasitter_language_metadata_packed",
 		"language_metadata_packed",
 		"ts_language_metadata_packed",
 		"tsw_language_metadata_for",
-		"sitterwasm_language_metadata_for",
+		"wasitter_language_metadata_for",
 		"language_metadata_for",
 		"ts_language_metadata_for",
 		"tsw_language_metadata",
-		"sitterwasm_language_metadata",
+		"wasitter_language_metadata",
 		"language_metadata",
 		"ts_language_metadata",
 	}, []int{0, 1}, []int{1, 2, 3}, true, true)
@@ -575,7 +575,7 @@ func (l *Language) Metadata() *LanguageMetadata {
 
 // SymbolCount returns the number of symbols in the grammar.
 func (l *Language) SymbolCount() uint32 {
-	v, _ := l.count([]string{"tsw_language_symbol_count", "sitterwasm_language_symbol_count", "language_symbol_count", "ts_language_symbol_count"})
+	v, _ := l.count([]string{"tsw_language_symbol_count", "wasitter_language_symbol_count", "language_symbol_count", "ts_language_symbol_count"})
 	return v
 }
 
@@ -584,7 +584,7 @@ func (l *Language) NodeKindCount() uint32 { return l.SymbolCount() }
 
 // StateCount returns the number of parser states in the grammar.
 func (l *Language) StateCount() uint32 {
-	v, _ := l.count([]string{"tsw_language_state_count", "sitterwasm_language_state_count", "language_state_count", "ts_language_state_count"})
+	v, _ := l.count([]string{"tsw_language_state_count", "wasitter_language_state_count", "language_state_count", "ts_language_state_count"})
 	return v
 }
 
@@ -593,7 +593,7 @@ func (l *Language) ParseStateCount() uint32 { return l.StateCount() }
 
 // FieldCount returns the number of named fields in the grammar.
 func (l *Language) FieldCount() uint32 {
-	v, _ := l.count([]string{"tsw_language_field_count", "sitterwasm_language_field_count", "language_field_count", "ts_language_field_count"})
+	v, _ := l.count([]string{"tsw_language_field_count", "wasitter_language_field_count", "language_field_count", "ts_language_field_count"})
 	return v
 }
 
@@ -631,7 +631,7 @@ func (l *Language) SymbolNameE(id uint16) (string, error) {
 	}
 	return l.callStringWithArgs([]string{
 		"tsw_language_symbol_name",
-		"sitterwasm_language_symbol_name",
+		"wasitter_language_symbol_name",
 		"language_symbol_name",
 		"ts_language_symbol_name",
 	}, uint64(l.handle), uint64(id))
@@ -655,8 +655,8 @@ func (l *Language) FieldNameForIDE(id uint16) (string, error) {
 	return l.callStringWithArgs([]string{
 		"tsw_language_field_name",
 		"tsw_language_field_name_for_id",
-		"sitterwasm_language_field_name",
-		"sitterwasm_language_field_name_for_id",
+		"wasitter_language_field_name",
+		"wasitter_language_field_name_for_id",
 		"language_field_name",
 		"language_field_name_for_id",
 		"ts_language_field_name",
@@ -722,7 +722,7 @@ func (l *Language) fieldIDForName(name string) (uint16, error) {
 	}
 	result, _, err := l.runtime.callWithInput(context.Background(), []string{
 		"tsw_language_field_id_for_name",
-		"sitterwasm_language_field_id_for_name",
+		"wasitter_language_field_id_for_name",
 		"language_field_id_for_name",
 		"ts_language_field_id_for_name",
 	}, []uint64{uint64(l.handle)}, []byte(name))
@@ -779,7 +779,7 @@ func (l *Language) symbolType(id uint16) (SymbolType, error) {
 	defer r.mu.Unlock()
 	fn, name, err := lookupIntegerFunctionLocked(r, []string{
 		"tsw_language_symbol_type",
-		"sitterwasm_language_symbol_type",
+		"wasitter_language_symbol_type",
 		"language_symbol_type",
 		"ts_language_symbol_type",
 	}, 2, 1, true, true)
@@ -809,7 +809,7 @@ func (l *Language) NextState(state, id uint16) uint16 {
 	defer r.mu.Unlock()
 	fn, _, err := lookupIntegerFunctionLocked(r, []string{
 		"tsw_language_next_state",
-		"sitterwasm_language_next_state",
+		"wasitter_language_next_state",
 		"language_next_state",
 		"ts_language_next_state",
 	}, 3, 1, true, true)
@@ -851,11 +851,11 @@ func (l *Language) SymbolForNameNamedE(name string, named bool) (uint16, error) 
 	defer r.mu.Unlock()
 	fn, fnName, err := lookupIntegerFunctionAllowedLocked(r, []string{
 		"tsw_language_symbol_for_name_named",
-		"sitterwasm_language_symbol_for_name_named",
+		"wasitter_language_symbol_for_name_named",
 		"language_symbol_for_name_named",
 		"ts_language_symbol_for_name_named",
 		"tsw_language_symbol_for_name",
-		"sitterwasm_language_symbol_for_name",
+		"wasitter_language_symbol_for_name",
 		"language_symbol_for_name",
 		"ts_language_symbol_for_name",
 	}, []int{3, 4}, 1, true, true)
@@ -868,7 +868,7 @@ func (l *Language) SymbolForNameNamedE(name string, named bool) (uint16, error) 
 	}
 	defer r.freeLocked(ptr)
 	if mem := r.mod.Memory(); mem == nil || !mem.Write(ptr, []byte(name)) {
-		return 0, fmt.Errorf("sitterwasm: cannot write language symbol name")
+		return 0, fmt.Errorf("wasitter: cannot write language symbol name")
 	}
 	params := len(fn.Definition().ParamTypes())
 	args := []uint64{uint64(l.handle), uint64(ptr), uint64(len(name))}
@@ -902,7 +902,7 @@ func (l *Language) SymbolType(id uint16) SymbolType {
 	}
 	result, _, err := l.runtime.call(context.Background(), []string{
 		"tsw_language_symbol_type",
-		"sitterwasm_language_symbol_type",
+		"wasitter_language_symbol_type",
 		"language_symbol_type",
 		"ts_language_symbol_type",
 	}, uint64(l.handle), uint64(id))
@@ -922,7 +922,7 @@ func (l *Language) SymbolTypeE(id uint16) (SymbolType, error) {
 	}
 	result, _, err := l.runtime.call(context.Background(), []string{
 		"tsw_language_symbol_type",
-		"sitterwasm_language_symbol_type",
+		"wasitter_language_symbol_type",
 		"language_symbol_type",
 		"ts_language_symbol_type",
 	}, uint64(l.handle), uint64(id))

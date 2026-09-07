@@ -109,7 +109,7 @@ jobs:
           go-version: stable
           cache-dependency-path: go.sum
       - name: Compile tests
-        run: go test -c -o "${RUNNER_TEMP}/sitterwasm-${GOOS}-${GOARCH}.test" .
+        run: go test -c -o "${RUNNER_TEMP}/wasitter-${GOOS}-${GOARCH}.test" .
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}

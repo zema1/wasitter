@@ -1,4 +1,4 @@
-# sitterwasm
+# wasitter
 
 Tree-sitter for Go, backed by a portable `wasm32-wasi` module. The package
 embeds the upstream Tree-sitter C runtime and checked-in grammar artifacts, so
@@ -9,7 +9,7 @@ be generated and committed with the same workflow.
 ## Install
 
 ```sh
-go get github.com/zema1/sitterwasm@latest
+go get github.com/zema1/wasitter@latest
 ```
 
 The module requires Go 1.23 or newer. Its ordinary build path is pure Go and
@@ -25,12 +25,12 @@ import (
 	"fmt"
 	"log"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func main() {
 	ctx := context.Background()
-	parser, runtime, err := sitterwasm.NewJSONParser(ctx)
+	parser, runtime, err := wasitter.NewJSONParser(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +70,7 @@ separate parsers can run concurrently on the same runtime.
 `mise` is the canonical entry point. Every build runs the compiler inside a
 pinned Docker image, refreshes the adjacent SHA-256 file, and leaves the WASM
 artifact in the repository. The task delegates orchestration to the
-CGO-free `cmd/sitterwasm-build` Go command, so registry parsing and Docker
+CGO-free `cmd/wasitter-build` Go command, so registry parsing and Docker
 argument handling do not depend on a host shell:
 
 ```sh
@@ -82,13 +82,13 @@ mise run wasm-check       # rebuild, verify, and run fixture checks
 The command can also be invoked directly while developing the build workflow:
 
 ```sh
-go run ./cmd/sitterwasm-build build-grammar javascript
+go run ./cmd/wasitter-build build-grammar javascript
 ```
 
 To build an official grammar selected by name, pass one argument:
 
 ```sh
-mise run build:grammar javascript  # writes internal/wasm/assets/sitterwasm-javascript.wasm
+mise run build:grammar javascript  # writes internal/wasm/assets/wasitter-javascript.wasm
 mise run test:grammar javascript   # verify the artifact, smoke-test it, and run native parity
 mise run check:grammar javascript  # build followed by the two checks above
 ```
@@ -96,9 +96,9 @@ mise run check:grammar javascript  # build followed by the two checks above
 `build:grammar` downloads the exact release and source-archive digest recorded
 in [`scripts/grammar-registry.json`](scripts/grammar-registry.json), then
 invokes the same ABI bridge used by the bundled JSON artifact. The output files
-are `internal/wasm/assets/sitterwasm-<language>.wasm` and its `.sha256` sidecar;
+are `internal/wasm/assets/wasitter-<language>.wasm` and its `.sha256` sidecar;
 commit both files when the grammar is intended to be part of the package.
-`go:embed` discovers every checked-in `sitterwasm-*.wasm` file, and
+`go:embed` discovers every checked-in `wasitter-*.wasm` file, and
 `BuiltinWASM("<language>")` can retrieve it at runtime.
 
 The registry uses JSON rather than YAML so the CGO-free build command can use
@@ -153,7 +153,7 @@ and
 for third-party license information.
 
 The expected SHA-256 is kept beside each artifact (for example,
-`internal/wasm/assets/sitterwasm-json.wasm.sha256`). The Go command links
+`internal/wasm/assets/wasitter-json.wasm.sha256`). The Go command links
 through temporary sibling files and publishes only after a successful link, so
 a failed build cannot truncate an existing artifact.
 
@@ -257,7 +257,7 @@ go test -run '^$' -bench . -benchmem ./...
 ```
 
 `BenchmarkGeneratedGrammarParse` automatically creates one WASM parse
-sub-benchmark for every checked-in `sitterwasm-*.wasm` artifact. This keeps
+sub-benchmark for every checked-in `wasitter-*.wasm` artifact. This keeps
 new registry grammars visible in performance runs without adding per-language
 benchmark code. Filter to one artifact when iterating on it:
 

@@ -1,22 +1,22 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"errors"
 	"math"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func TestQueryCursorUpstreamIteratorCompatibility(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 
 	root := tree.RootNode()
@@ -51,13 +51,13 @@ func TestQueryCursorUpstreamIteratorCompatibility(t *testing.T) {
 func TestQueryCursorExecAcceptsNodeValueAndPointer(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
 	root := tree.RootNode()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	if err := cursor.Exec(q, &root); err != nil {
 		t.Fatalf("Exec(pointer): %v", err)
@@ -71,7 +71,7 @@ func TestQueryCursorExecAcceptsNodeValueAndPointer(t *testing.T) {
 	if _, ok := cursor.NextMatch(); !ok {
 		t.Fatal("Exec(value) produced no matches")
 	}
-	if err := cursor.Exec(q, (*sitterwasm.Node)(nil)); !errors.Is(err, sitterwasm.ErrInvalidHandle) {
+	if err := cursor.Exec(q, (*wasitter.Node)(nil)); !errors.Is(err, wasitter.ErrInvalidHandle) {
 		t.Fatalf("Exec(nil pointer) error = %v, want ErrInvalidHandle", err)
 	}
 }
@@ -79,19 +79,19 @@ func TestQueryCursorExecAcceptsNodeValueAndPointer(t *testing.T) {
 func TestQueryCursorIteratorOptionsAndDepthForms(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 
 	depth := uint(0)
 	cursor.SetMaxStartDepth(&depth)
 	seen := 0
-	matches := cursor.MatchesWithOptions(q, tree.RootNode(), []byte(`[1, 2, 3]`), sitterwasm.QueryCursorOptions{
-		ProgressCallback: func(state sitterwasm.QueryCursorState) bool {
+	matches := cursor.MatchesWithOptions(q, tree.RootNode(), []byte(`[1, 2, 3]`), wasitter.QueryCursorOptions{
+		ProgressCallback: func(state wasitter.QueryCursorState) bool {
 			seen++
 			return true
 		},
@@ -109,16 +109,16 @@ func TestQueryCursorIteratorOptionsAndDepthForms(t *testing.T) {
 func TestQueryCursorExecWithOptionsDrivesNextProgressCallback(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	calls := 0
-	if err := cursor.ExecWithOptions(q, tree.RootNode(), sitterwasm.QueryCursorOptions{
-		ProgressCallback: func(sitterwasm.QueryCursorState) bool {
+	if err := cursor.ExecWithOptions(q, tree.RootNode(), wasitter.QueryCursorOptions{
+		ProgressCallback: func(wasitter.QueryCursorState) bool {
 			calls++
 			return calls >= 2
 		},
@@ -143,12 +143,12 @@ func TestQueryCursorExecWithOptionsDrivesNextProgressCallback(t *testing.T) {
 func TestQueryCursorCapturesIteratorRemove(t *testing.T) {
 	p, _, tree := parseJSON(t, `{"a": 1, "b": 2}`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(pair key: (string) @key value: (_) @value)`)
+	q, err := wasitter.NewQuery(p.Language(), `(pair key: (string) @key value: (_) @value)`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	captures := cursor.Captures(q, tree.RootNode(), []byte(`{"a": 1, "b": 2}`))
 	match, index := captures.Next()
@@ -176,12 +176,12 @@ func TestQueryCursorCapturesIteratorRemove(t *testing.T) {
 func TestQueryIteratorZeroWidthRangeIntersection(t *testing.T) {
 	p, _, tree := parseJSON(t, `["abc"]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(string) @s`)
+	q, err := wasitter.NewQuery(p.Language(), `(string) @s`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 
 	matches := cursor.Matches(q, tree.RootNode(), []byte(`["abc"]`))
@@ -199,12 +199,12 @@ func TestQueryIteratorZeroWidthRangeIntersection(t *testing.T) {
 func TestQueryIteratorRangeSentinels(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 
 	// Tree-sitter treats an end byte of zero as the unbounded-end sentinel.
@@ -216,7 +216,7 @@ func TestQueryIteratorRangeSentinels(t *testing.T) {
 
 	// The point-range iterator setter uses the analogous (0,0) sentinel.
 	matches = cursor.Matches(q, tree.RootNode(), []byte(`[1, 2]`))
-	matches.SetPointRange(sitterwasm.Point{Row: 0, Column: 4}, sitterwasm.Point{})
+	matches.SetPointRange(wasitter.Point{Row: 0, Column: 4}, wasitter.Point{})
 	if len(matches) != 1 || matches[0].Captures[0].Node.Text() != "2" {
 		t.Fatalf("point sentinel range = %#v, want only 2", matches)
 	}
@@ -228,12 +228,12 @@ func TestQueryIteratorRejectsWideByteRangeAndExtraArgs(t *testing.T) {
 	}
 	p, _, tree := parseJSON(t, `[1, 2]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	matches := cursor.Matches(q, tree.RootNode(), []byte(`[1, 2]`))
 	// Build these as runtime values so the file compiles on 32-bit hosts. The

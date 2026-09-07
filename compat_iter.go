@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ const (
 
 // Iterator walks a node and all of its descendants.  It mirrors the small
 // iterator helper shipped by smacker/go-tree-sitter while retaining
-// sitterwasm's value-backed nodes internally.  Returned pointers refer to
+// wasitter's value-backed nodes internally.  Returned pointers refer to
 // independent Node values and remain usable while their owning tree is open.
 type Iterator struct {
 	mu      sync.Mutex
@@ -30,7 +30,7 @@ type Iterator struct {
 
 // NewIterator creates a depth-first or breadth-first iterator rooted at node.
 // Both Node and *Node are accepted to accommodate the value-oriented
-// sitterwasm API and the pointer-oriented native bindings.
+// wasitter API and the pointer-oriented native bindings.
 func NewIterator(value any, mode IterMode) *Iterator {
 	it := &Iterator{mode: mode}
 	node, ok := nodeValueArg(value)
@@ -44,7 +44,7 @@ func NewIterator(value any, mode IterMode) *Iterator {
 		return it
 	}
 	if mode != DFSMode && mode != BFSMode {
-		it.invalid = fmt.Errorf("sitterwasm: unsupported iterator mode %d", mode)
+		it.invalid = fmt.Errorf("wasitter: unsupported iterator mode %d", mode)
 		return it
 	}
 	it.toVisit = []Node{node}
@@ -117,7 +117,7 @@ func (it *Iterator) Next() (*Node, error) {
 // errors.Is(err, io.EOF) adapter.
 func (it *Iterator) ForEach(fn func(*Node) error) error {
 	if fn == nil {
-		return fmt.Errorf("sitterwasm: nil iterator callback")
+		return fmt.Errorf("wasitter: nil iterator callback")
 	}
 	for {
 		node, err := it.Next()

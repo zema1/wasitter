@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"errors"
@@ -7,16 +7,16 @@ import (
 
 // Errors returned by the WASM-backed API.
 var (
-	ErrClosed        = errors.New("sitterwasm: object is closed")
-	ErrNoRuntime     = errors.New("sitterwasm: no WASM runtime configured")
-	ErrNoLanguage    = errors.New("sitterwasm: parser has no language")
-	ErrUnsupported   = errors.New("sitterwasm: operation is not supported by this module")
-	ErrInvalidHandle = errors.New("sitterwasm: invalid WASM handle")
+	ErrClosed        = errors.New("wasitter: object is closed")
+	ErrNoRuntime     = errors.New("wasitter: no WASM runtime configured")
+	ErrNoLanguage    = errors.New("wasitter: parser has no language")
+	ErrUnsupported   = errors.New("wasitter: operation is not supported by this module")
+	ErrInvalidHandle = errors.New("wasitter: invalid WASM handle")
 	// ErrOperationLimit is returned when Tree-sitter stops parsing because the
 	// parser timeout/operation budget was exhausted. It mirrors the sentinel
 	// exposed by the established Go bindings and lets callers distinguish this
 	// expected, resumable condition from a malformed ABI call.
-	ErrOperationLimit = errors.New("sitterwasm: parser operation limit reached")
+	ErrOperationLimit = errors.New("wasitter: parser operation limit reached")
 )
 
 func isUnsupported(err error) bool { return errors.Is(err, ErrUnsupported) }
@@ -34,12 +34,12 @@ type ABIError struct {
 
 func (e *ABIError) Error() string {
 	if e == nil {
-		return "sitterwasm: ABI call failed"
+		return "wasitter: ABI call failed"
 	}
 	if e.Message == "" {
-		return "sitterwasm: " + e.Function + " failed"
+		return "wasitter: " + e.Function + " failed"
 	}
-	return "sitterwasm: " + e.Function + ": " + e.Message
+	return "wasitter: " + e.Function + ": " + e.Message
 }
 
 // Unwrap exposes the underlying guest-call error to errors.Is/As.
@@ -63,9 +63,9 @@ func (e *LanguageError) Error() string {
 		return ""
 	}
 	if e.Version == 0 {
-		return "sitterwasm: language has an incompatible ABI version"
+		return "wasitter: language has an incompatible ABI version"
 	}
-	return fmt.Sprintf("sitterwasm: language ABI version %d is incompatible (supported %d..%d)", e.Version, MIN_COMPATIBLE_LANGUAGE_VERSION, LANGUAGE_VERSION)
+	return fmt.Sprintf("wasitter: language ABI version %d is incompatible (supported %d..%d)", e.Version, MIN_COMPATIBLE_LANGUAGE_VERSION, LANGUAGE_VERSION)
 }
 
 // IncludedRangesError reports the first range that violates Tree-sitter's
@@ -81,7 +81,7 @@ type IncludedRangesError struct {
 
 func (e *IncludedRangesError) Error() string {
 	if e == nil {
-		return "sitterwasm: invalid included ranges"
+		return "wasitter: invalid included ranges"
 	}
-	return fmt.Sprintf("sitterwasm: invalid included range at index %d", e.Index)
+	return fmt.Sprintf("wasitter: invalid included range at index %d", e.Index)
 }

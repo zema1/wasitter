@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import "fmt"
 
@@ -35,7 +35,7 @@ type InputEdit struct {
 	// The upstream go-tree-sitter binding calls the three position fields
 	// StartPosition/OldEndPosition/NewEndPosition.  Keep those spellings as
 	// compatibility aliases while retaining the shorter Point names used by
-	// sitterwasm.  When both forms are populated, the Point field wins; the
+	// wasitter.  When both forms are populated, the Point field wins; the
 	// position alias is used only when its corresponding Point is zero.  This
 	// permits keyed struct literals written for either API to pass through the
 	// same wire encoder without changing the wasm32 byte/point representation.
@@ -54,7 +54,7 @@ type InputEdit struct {
 }
 
 // inputEditValue normalizes the value- and pointer-shaped edit forms exposed
-// by the native Go bindings.  The primary sitterwasm API uses a value so an
+// by the native Go bindings.  The primary wasitter API uses a value so an
 // edit can be passed without an allocation, while upstream callers commonly
 // keep an *InputEdit and pass its address to Tree.Edit/Node.Edit.  Keeping the
 // normalization in one place prevents the two entry points from drifting.
@@ -68,7 +68,7 @@ func inputEditValue(value any) (InputEdit, error) {
 		}
 		return *edit, nil
 	default:
-		return InputEdit{}, fmt.Errorf("sitterwasm: edit must be InputEdit or *InputEdit, got %T", value)
+		return InputEdit{}, fmt.Errorf("wasitter: edit must be InputEdit or *InputEdit, got %T", value)
 	}
 }
 
@@ -132,7 +132,7 @@ type EditInput = InputEdit
 type Edit = InputEdit
 
 // canonicalPoints returns the wire-facing point triplet for an edit.  The
-// shorter *Point fields are the native sitterwasm spelling; the
+// shorter *Point fields are the native wasitter spelling; the
 // *Position fields are compatibility aliases for go-tree-sitter callers.  A
 // zero Point is a valid source position, so this helper can only distinguish
 // the common keyed-literal case (where one spelling is left at its zero value).
@@ -171,7 +171,7 @@ func (e InputEdit) canonicalBytes() (start, oldEnd, newEnd uint32) {
 
 // Logger receives parser diagnostics. Type is the historical string spelling
 // ("parse" or "lex") retained for source compatibility with early
-// sitterwasm releases.
+// wasitter releases.
 type Logger func(typ, message string)
 
 // TypedLogger is the Tree-sitter-compatible logger shape. SetLogger accepts

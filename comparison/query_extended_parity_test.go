@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	native "github.com/tree-sitter/go-tree-sitter"
-	wasm "github.com/zema1/sitterwasm"
+	wasm "github.com/zema1/wasitter"
 )
 
 func TestExtendedQueryParity(t *testing.T) {

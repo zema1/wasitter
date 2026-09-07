@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func TestNodeUtf16TextUsesUTF8ByteOffsets(t *testing.T) {
-	p, rt, err := sitterwasm.NewJSONParser(context.Background())
+	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestNodeUtf16TextUsesUTF8ByteOffsets(t *testing.T) {
 }
 
 func TestLanguageWrapperCloseDoesNotInvalidateParser(t *testing.T) {
-	p, rt, err := sitterwasm.NewJSONParser(context.Background())
+	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

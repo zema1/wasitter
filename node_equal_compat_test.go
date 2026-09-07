@@ -1,11 +1,11 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"bytes"
 	"context"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // hideWASMExport renames an export in-place while preserving the string
@@ -26,9 +26,9 @@ func hideWASMExport(t *testing.T, wasm []byte, name, replacement string) []byte 
 	return bytes.Replace(wasm, []byte(name), []byte(replacement), 1)
 }
 
-func parseWithWASM(t *testing.T, wasm []byte) *sitterwasm.Tree {
+func parseWithWASM(t *testing.T, wasm []byte) *wasitter.Tree {
 	t.Helper()
-	rt, err := sitterwasm.NewRuntime(context.Background(), wasm)
+	rt, err := wasitter.NewRuntime(context.Background(), wasm)
 	if err != nil {
 		t.Fatalf("NewRuntime: %v", err)
 	}
@@ -37,7 +37,7 @@ func parseWithWASM(t *testing.T, wasm []byte) *sitterwasm.Tree {
 		rt.Close()
 		t.Fatalf("LoadLanguage: %v", err)
 	}
-	p, err := sitterwasm.NewParserWithRuntime(rt)
+	p, err := wasitter.NewParserWithRuntime(rt)
 	if err != nil {
 		lang.Close()
 		rt.Close()
@@ -66,7 +66,7 @@ func parseWithWASM(t *testing.T, wasm []byte) *sitterwasm.Tree {
 }
 
 func TestNodeEqualUsesStableIDWithoutEqualityExport(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_node_eq", "old_node_eq")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_node_eq", "old_node_eq")
 	tree := parseWithWASM(t, wasm)
 	array := tree.RootNode().NamedChild(0)
 	first := array.NamedChild(0)
@@ -83,7 +83,7 @@ func TestNodeEqualUsesStableIDWithoutEqualityExport(t *testing.T) {
 }
 
 func TestNodeEqualUsesRangeMetadataWithoutIDOrEqualityExports(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	wasm = hideWASMExport(t, wasm, "tsw_node_eq", "old_node_eq")
 	wasm = hideWASMExport(t, wasm, "tsw_node_id", "old_node_id")
 	tree := parseWithWASM(t, wasm)

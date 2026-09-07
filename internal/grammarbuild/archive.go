@@ -140,7 +140,7 @@ func downloadArchive(ctx context.Context, g Grammar, destination string, options
 		}
 		// GitHub occasionally serves a transient gateway response. A normal
 		// user-agent also makes diagnostics on mirrors less surprising.
-		req.Header.Set("User-Agent", "sitterwasm-grammar-builder/1")
+		req.Header.Set("User-Agent", "wasitter-grammar-builder/1")
 		resp, err := client.Do(req)
 		if err != nil {
 			closeAndRemove()

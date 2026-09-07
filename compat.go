@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 )
 
 // ReadFunc is the callback shape used by Tree-sitter's Go bindings.  The
-// stable sitterwasm API accepts this function directly through ParseInput;
+// stable wasitter API accepts this function directly through ParseInput;
 // naming it here makes callback declarations self-documenting and eases
 // migration from packages that expose the alias.
 type ReadFunc func(offset uint32, point Point) []byte
@@ -39,7 +39,7 @@ const (
 	// ErrUnsupported for this value rather than silently treating bytes as
 	// UTF-8.
 	InputEncodingCustom InputEncoding = 3
-	// InputEncodingUTF16 was used by an early sitterwasm prototype before the
+	// InputEncodingUTF16 was used by an early wasitter prototype before the
 	// byte-order variants were aligned with the C API.  Keep it as a distinct
 	// value for source compatibility, but reject it in ParseInputSpec because a
 	// byte callback cannot convey the host's UTF-16 byte order safely.
@@ -74,7 +74,7 @@ func (f CustomDecoderFunc) Decode(data []byte) (int32, uint32) {
 
 // This file contains small spelling/ergonomics bridges.  The core API keeps
 // explicit errors and value-shaped nodes; these helpers make migration from
-// the upstream Go binding and from early sitterwasm prototypes less noisy
+// the upstream Go binding and from early wasitter prototypes less noisy
 // without changing the behavior of the primary methods.
 
 // NewPoint constructs a source position.  Tree-sitter positions are bounded
@@ -154,7 +154,7 @@ func (p *Parser) ParseInputSpec(input Input, oldTrees ...*Tree) (*Tree, error) {
 // alignment before invoking this helper when they need a diagnostic.
 func utf16BytesToUTF8(raw []byte, order binary.ByteOrder) ([]byte, error) {
 	if len(raw)%2 != 0 {
-		return nil, fmt.Errorf("sitterwasm: UTF-16 input has odd byte length %d", len(raw))
+		return nil, fmt.Errorf("wasitter: UTF-16 input has odd byte length %d", len(raw))
 	}
 	units := make([]uint16, len(raw)/2)
 	for i := range units {
@@ -252,7 +252,7 @@ func decodeCustomInput(raw []byte, decoder any) ([]byte, error) {
 			return int32(r), uint32(n)
 		}
 	default:
-		return nil, fmt.Errorf("sitterwasm: decoder must implement Decoder, got %T", decoder)
+		return nil, fmt.Errorf("wasitter: decoder must implement Decoder, got %T", decoder)
 	}
 	if len(raw) == 0 {
 		return nil, nil
@@ -263,21 +263,21 @@ func decodeCustomInput(raw []byte, decoder any) ([]byte, error) {
 	for offset := 0; offset < len(raw); {
 		codePoint, consumed := decode(raw[offset:])
 		if codePoint < 0 {
-			return nil, fmt.Errorf("sitterwasm: custom decoder rejected input at byte %d", offset)
+			return nil, fmt.Errorf("wasitter: custom decoder rejected input at byte %d", offset)
 		}
 		if consumed == 0 || uint64(consumed) > uint64(len(raw)-offset) {
-			return nil, fmt.Errorf("sitterwasm: custom decoder made invalid progress at byte %d", offset)
+			return nil, fmt.Errorf("wasitter: custom decoder made invalid progress at byte %d", offset)
 		}
 		runeValue := rune(codePoint)
 		if !utf8.ValidRune(runeValue) {
-			return nil, fmt.Errorf("sitterwasm: custom decoder returned invalid code point U+%X at byte %d", codePoint, offset)
+			return nil, fmt.Errorf("wasitter: custom decoder returned invalid code point U+%X at byte %d", codePoint, offset)
 		}
 		var encoded [utf8.UTFMax]byte
 		n := utf8.EncodeRune(encoded[:], runeValue)
 		_, _ = out.Write(encoded[:n])
 		offset += int(consumed)
 		if uint64(out.Len()) > uint64(^uint32(0)) {
-			return nil, fmt.Errorf("sitterwasm: decoded input exceeds uint32 byte offset")
+			return nil, fmt.Errorf("wasitter: decoded input exceeds uint32 byte offset")
 		}
 	}
 	return out.Bytes(), nil
@@ -311,7 +311,7 @@ func (p *Parser) PrintDotGraphs(file *os.File) error {
 		return err
 	}
 	if file == nil {
-		return fmt.Errorf("sitterwasm: nil dot-graph file")
+		return fmt.Errorf("wasitter: nil dot-graph file")
 	}
 	return ErrUnsupported
 }
@@ -505,7 +505,7 @@ func collectUTF16Input(read func(offset int, point Point) []uint16) ([]uint16, e
 		// slice. This mirrors collectUTF8Input and prevents a malformed callback
 		// from consuming memory only to fail after the append.
 		if uint64(len(all))+uint64(len(chunk)) > uint64(^uint32(0)) {
-			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 code-unit offset")
+			return nil, fmt.Errorf("wasitter: input exceeds uint32 code-unit offset")
 		}
 		all = append(all, chunk...)
 		for _, unit := range chunk {
@@ -517,7 +517,7 @@ func collectUTF16Input(read func(offset int, point Point) []uint16) ([]uint16, e
 			}
 		}
 	}
-	return nil, fmt.Errorf("sitterwasm: input callback exceeded %d calls: %w", maxCalls, io.ErrNoProgress)
+	return nil, fmt.Errorf("wasitter: input callback exceeded %d calls: %w", maxCalls, io.ErrNoProgress)
 }
 
 // EditPtr is the pointer-shaped counterpart to Tree.Edit.
@@ -548,7 +548,7 @@ func (t *Tree) PrintDotGraph(file int) error {
 		return err
 	}
 	if file < 0 {
-		return fmt.Errorf("sitterwasm: invalid dot-graph file descriptor %d", file)
+		return fmt.Errorf("wasitter: invalid dot-graph file descriptor %d", file)
 	}
 	return ErrUnsupported
 }
@@ -564,7 +564,7 @@ func (n Node) EditPtr(edit *InputEdit) error {
 // ChildWithDescendantPtr is the pointer-shaped counterpart of
 // Node.ChildWithDescendant.  It is useful when adapting code written against
 // go-tree-sitter, whose Node methods use pointers, while the primary
-// sitterwasm API intentionally uses copyable value nodes.
+// wasitter API intentionally uses copyable value nodes.
 func (n Node) ChildWithDescendantPtr(descendant *Node) Node {
 	if descendant == nil {
 		return Node{}
@@ -586,7 +586,7 @@ func (n Node) ChildForFieldId(fieldID uint16) Node { return n.ChildByFieldId(fie
 func (n Node) ChildForFieldID(fieldID uint16) Node { return n.ChildByFieldId(fieldID) }
 
 // FirstChildForIndex is the Node.js spelling for a byte-index lookup.  Tree
-// coordinates in sitterwasm are UTF-8 byte offsets, so this is equivalent to
+// coordinates in wasitter are UTF-8 byte offsets, so this is equivalent to
 // FirstChildForByte.
 func (n Node) FirstChildForIndex(index uint32) Node { return n.FirstChildForByte(index) }
 

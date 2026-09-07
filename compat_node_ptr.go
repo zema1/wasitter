@@ -1,6 +1,6 @@
-package sitterwasm
+package wasitter
 
-// The core sitterwasm API uses copyable value Nodes.  These pointer-shaped
+// The core wasitter API uses copyable value Nodes.  These pointer-shaped
 // helpers make it straightforward to adapt traversal code written for
 // bindings whose accessors return *Node, without introducing a second node
 // representation or changing existing method signatures.

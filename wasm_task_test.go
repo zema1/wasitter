@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"errors"
@@ -28,7 +28,7 @@ func TestWASMBuildTaskEntrypoint(t *testing.T) {
 			t.Fatalf("mise.toml does not define %s", task)
 		}
 	}
-	if !strings.Contains(config, "go run ./cmd/sitterwasm-build") {
+	if !strings.Contains(config, "go run ./cmd/wasitter-build") {
 		t.Fatal("mise tasks do not use the Go build command")
 	}
 	if strings.Contains(config, ".sh") {
@@ -43,17 +43,17 @@ func TestGrammarTestTaskRejectsUnknownLanguage(t *testing.T) {
 	if runtime.GOOS == "js" || runtime.GOOS == "wasip1" {
 		t.Skip("cannot execute a host Go subprocess from this target")
 	}
-	cmd := exec.Command("go", "run", "./cmd/sitterwasm-build", "test-grammar", "not-a-registered-language")
+	cmd := exec.Command("go", "run", "./cmd/wasitter-build", "test-grammar", "not-a-registered-language")
 	output, runErr := cmd.CombinedOutput()
 	var exitErr *exec.ExitError
 	if !errors.As(runErr, &exitErr) {
-		t.Fatalf("sitterwasm-build error = %v, want an exit error; output: %s", runErr, output)
+		t.Fatalf("wasitter-build error = %v, want an exit error; output: %s", runErr, output)
 	}
 	if exitErr.ExitCode() == 0 {
-		t.Fatalf("sitterwasm-build exit code = %d, want non-zero; output: %s", exitErr.ExitCode(), output)
+		t.Fatalf("wasitter-build exit code = %d, want non-zero; output: %s", exitErr.ExitCode(), output)
 	}
 	if !strings.Contains(string(output), "not in the official grammar registry") {
-		t.Fatalf("sitterwasm-build output = %q, want registry diagnostic", output)
+		t.Fatalf("wasitter-build output = %q, want registry diagnostic", output)
 	}
 }
 
@@ -63,15 +63,15 @@ func TestGrammarCommandRejectsShellSyntaxAsLanguage(t *testing.T) {
 	}
 	marker := filepath.Join(t.TempDir(), "injected")
 	malicious := "bad;touch " + marker
-	cmd := exec.Command("go", "run", "./cmd/sitterwasm-build", "test-grammar", malicious)
+	cmd := exec.Command("go", "run", "./cmd/wasitter-build", "test-grammar", malicious)
 	output, runErr := cmd.CombinedOutput()
 	if runErr == nil {
-		t.Fatal("sitterwasm-build unexpectedly accepted shell syntax")
+		t.Fatal("wasitter-build unexpectedly accepted shell syntax")
 	}
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {
 		t.Fatalf("language argument caused command injection (marker stat error: %v); output: %s", err, output)
 	}
 	if !strings.Contains(string(output), "invalid language name") {
-		t.Fatalf("sitterwasm-build output = %q, want invalid-language diagnostic", output)
+		t.Fatalf("wasitter-build output = %q, want invalid-language diagnostic", output)
 	}
 }

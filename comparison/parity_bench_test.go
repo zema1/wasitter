@@ -7,11 +7,11 @@ import (
 
 	native "github.com/tree-sitter/go-tree-sitter"
 	nativejson "github.com/tree-sitter/tree-sitter-json/bindings/go"
-	wasm "github.com/zema1/sitterwasm"
+	wasm "github.com/zema1/wasitter"
 )
 
 var benchmarkSource = []byte(`{
-  "name": "sitterwasm",
+  "name": "wasitter",
   "enabled": true,
   "version": 1,
   "items": [1, 2, 3, 5, 8, 13, 21],

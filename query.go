@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 // Query support is deliberately delegated to the Tree-sitter guest whenever
 // possible.  Query matching has a large amount of semantics (alternatives,
@@ -525,7 +525,7 @@ func (q *Query) PatternCount() uint32 {
 		return 0
 	}
 	if q.native {
-		return q.queryUint([]string{"tsw_query_pattern_count", "sitterwasm_query_pattern_count", "ts_query_pattern_count", "query_pattern_count"})
+		return q.queryUint([]string{"tsw_query_pattern_count", "wasitter_query_pattern_count", "ts_query_pattern_count", "query_pattern_count"})
 	}
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -541,7 +541,7 @@ func (q *Query) CaptureCount() uint32 {
 		return 0
 	}
 	if q.native {
-		return q.queryUint([]string{"tsw_query_capture_count", "sitterwasm_query_capture_count", "ts_query_capture_count", "query_capture_count"})
+		return q.queryUint([]string{"tsw_query_capture_count", "wasitter_query_capture_count", "ts_query_capture_count", "query_capture_count"})
 	}
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -553,7 +553,7 @@ func (q *Query) StringCount() uint32 {
 	if q == nil || q.closed.Load() || !q.native {
 		return 0
 	}
-	return q.queryUint([]string{"tsw_query_string_count", "sitterwasm_query_string_count", "ts_query_string_count", "query_string_count"})
+	return q.queryUint([]string{"tsw_query_string_count", "wasitter_query_string_count", "ts_query_string_count", "query_string_count"})
 }
 
 // CaptureName returns the capture name associated with id, or an empty string
@@ -577,8 +577,8 @@ func (q *Query) CaptureNameE(id uint32) (string, error) {
 	}
 	if q.native {
 		return q.queryString(id,
-			[]string{"tsw_query_capture_name_ptr", "tsw_query_capture_name", "sitterwasm_query_capture_name", "ts_query_capture_name_for_id", "query_capture_name"},
-			[]string{"tsw_query_capture_name_len", "sitterwasm_query_capture_name_len", "ts_query_capture_name_len", "query_capture_name_len"})
+			[]string{"tsw_query_capture_name_ptr", "tsw_query_capture_name", "wasitter_query_capture_name", "ts_query_capture_name_for_id", "query_capture_name"},
+			[]string{"tsw_query_capture_name_len", "wasitter_query_capture_name_len", "ts_query_capture_name_len", "query_capture_name_len"})
 	}
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -611,7 +611,7 @@ func (q *Query) CaptureQuantifierForID(pattern, capture uint32) CaptureQuantifie
 		}
 		return CaptureQuantifierZero
 	}
-	return CaptureQuantifier(q.queryUintWithArgs([]string{"tsw_query_capture_quantifier_for_id", "sitterwasm_query_capture_quantifier_for_id", "ts_query_capture_quantifier_for_id", "query_capture_quantifier_for_id"}, uint64(pattern), uint64(capture)))
+	return CaptureQuantifier(q.queryUintWithArgs([]string{"tsw_query_capture_quantifier_for_id", "wasitter_query_capture_quantifier_for_id", "ts_query_capture_quantifier_for_id", "query_capture_quantifier_for_id"}, uint64(pattern), uint64(capture)))
 }
 
 // CaptureQuantifier is an alias for CaptureQuantifierForID.
@@ -640,8 +640,8 @@ func (q *Query) StringValueE(id uint32) (string, error) {
 		return "", nil
 	}
 	return q.queryString(id,
-		[]string{"tsw_query_string_value_ptr", "tsw_query_string_value", "sitterwasm_query_string_value", "ts_query_string_value_for_id", "query_string_value"},
-		[]string{"tsw_query_string_value_len", "sitterwasm_query_string_value_len", "ts_query_string_value_len", "query_string_value_len"})
+		[]string{"tsw_query_string_value_ptr", "tsw_query_string_value", "wasitter_query_string_value", "ts_query_string_value_for_id", "query_string_value"},
+		[]string{"tsw_query_string_value_len", "wasitter_query_string_value_len", "ts_query_string_value_len", "query_string_value_len"})
 }
 
 // StringValueForId is the spelling used by the upstream Go binding.
@@ -664,7 +664,7 @@ func (q *Query) StartByteForPattern(pattern uint32) uint32 {
 		}
 		return uint32(candidate.sourceStart)
 	}
-	return q.queryUintWithArgs([]string{"tsw_query_start_byte_for_pattern", "sitterwasm_query_start_byte_for_pattern", "ts_query_start_byte_for_pattern", "query_start_byte_for_pattern"}, uint64(pattern))
+	return q.queryUintWithArgs([]string{"tsw_query_start_byte_for_pattern", "wasitter_query_start_byte_for_pattern", "ts_query_start_byte_for_pattern", "query_start_byte_for_pattern"}, uint64(pattern))
 }
 
 // EndByteForPattern returns the source byte offset immediately after pattern.
@@ -681,7 +681,7 @@ func (q *Query) EndByteForPattern(pattern uint32) uint32 {
 		}
 		return uint32(candidate.sourceEnd)
 	}
-	return q.queryUintWithArgs([]string{"tsw_query_end_byte_for_pattern", "sitterwasm_query_end_byte_for_pattern", "ts_query_end_byte_for_pattern", "query_end_byte_for_pattern"}, uint64(pattern))
+	return q.queryUintWithArgs([]string{"tsw_query_end_byte_for_pattern", "wasitter_query_end_byte_for_pattern", "ts_query_end_byte_for_pattern", "query_end_byte_for_pattern"}, uint64(pattern))
 }
 
 // IsPatternRooted reports whether pattern has a single root node.
@@ -695,18 +695,18 @@ func (q *Query) IsPatternRooted(pattern uint32) bool {
 		q.mu.RUnlock()
 		return found && candidate.rooted
 	}
-	return q.queryBool([]string{"tsw_query_is_pattern_rooted", "sitterwasm_query_is_pattern_rooted", "ts_query_is_pattern_rooted", "query_is_pattern_rooted"}, pattern)
+	return q.queryBool([]string{"tsw_query_is_pattern_rooted", "wasitter_query_is_pattern_rooted", "ts_query_is_pattern_rooted", "query_is_pattern_rooted"}, pattern)
 }
 
 // IsPatternNonLocal reports whether pattern contains a non-local rule.
 func (q *Query) IsPatternNonLocal(pattern uint32) bool {
-	return q.queryBool([]string{"tsw_query_is_pattern_non_local", "sitterwasm_query_is_pattern_non_local", "ts_query_is_pattern_non_local", "query_is_pattern_non_local"}, pattern)
+	return q.queryBool([]string{"tsw_query_is_pattern_non_local", "wasitter_query_is_pattern_non_local", "ts_query_is_pattern_non_local", "query_is_pattern_non_local"}, pattern)
 }
 
 // IsPatternGuaranteedAtStep reports whether a bytecode step is guaranteed to
 // advance a pattern match.
 func (q *Query) IsPatternGuaranteedAtStep(offset uint32) bool {
-	return q.queryBool([]string{"tsw_query_is_pattern_guaranteed_at_step", "sitterwasm_query_is_pattern_guaranteed_at_step", "ts_query_is_pattern_guaranteed_at_step", "query_is_pattern_guaranteed_at_step"}, offset)
+	return q.queryBool([]string{"tsw_query_is_pattern_guaranteed_at_step", "wasitter_query_is_pattern_guaranteed_at_step", "ts_query_is_pattern_guaranteed_at_step", "query_is_pattern_guaranteed_at_step"}, offset)
 }
 
 // DisableCapture disables all captures with name for subsequent executions.
@@ -741,12 +741,12 @@ func (q *Query) DisableCapture(name string) error {
 	// the guest read a truncated (or unrelated) range.  Report the condition
 	// before allocating or invoking the guest.
 	if uint64(len(name)) > uint64(^uint32(0)) {
-		return fmt.Errorf("sitterwasm: capture name exceeds uint32 wasm length")
+		return fmt.Errorf("wasitter: capture name exceeds uint32 wasm length")
 	}
 	r := q.runtime
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fn, fnName, err := r.function("tsw_query_disable_capture", "sitterwasm_query_disable_capture", "ts_query_disable_capture", "query_disable_capture")
+	fn, fnName, err := r.function("tsw_query_disable_capture", "wasitter_query_disable_capture", "ts_query_disable_capture", "query_disable_capture")
 	if err != nil {
 		return err
 	}
@@ -756,7 +756,7 @@ func (q *Query) DisableCapture(name string) error {
 	}
 	defer r.freeLocked(ptr)
 	if mem := r.mod.Memory(); mem == nil || !mem.Write(ptr, []byte(name)) {
-		return fmt.Errorf("sitterwasm: cannot write capture name")
+		return fmt.Errorf("wasitter: cannot write capture name")
 	}
 	if _, callErr := fn.Call(r.Context(), uint64(q.handle.Load()), uint64(ptr), uint64(len(name))); callErr != nil {
 		return &ABIError{Function: fnName, Message: callErr.Error()}
@@ -793,7 +793,7 @@ func (q *Query) DisablePattern(pattern uint32) error {
 		}
 		return nil
 	}
-	_, _, err := q.runtime.call(q.runtime.Context(), []string{"tsw_query_disable_pattern", "sitterwasm_query_disable_pattern", "ts_query_disable_pattern", "query_disable_pattern"}, uint64(q.handle.Load()), uint64(pattern))
+	_, _, err := q.runtime.call(q.runtime.Context(), []string{"tsw_query_disable_pattern", "wasitter_query_disable_pattern", "ts_query_disable_pattern", "query_disable_pattern"}, uint64(q.handle.Load()), uint64(pattern))
 	if err == nil {
 		q.disabledPatternsLockless(pattern)
 	}
@@ -828,7 +828,7 @@ func (q *Query) PredicateSteps(pattern uint32) ([]QueryPredicateStep, error) {
 	defer r.mu.Unlock()
 	fn, name, err := r.function(
 		"tsw_query_predicates_for_pattern_into",
-		"sitterwasm_query_predicates_for_pattern_into",
+		"wasitter_query_predicates_for_pattern_into",
 		"ts_query_predicates_for_pattern_into",
 		"query_predicates_for_pattern_into",
 	)
@@ -883,7 +883,7 @@ func (q *Query) PredicateSteps(pattern uint32) ([]QueryPredicateStep, error) {
 	}
 	b, ok := mem.Read(ptr, required)
 	if !ok {
-		return nil, fmt.Errorf("sitterwasm: predicate metadata points outside guest memory")
+		return nil, fmt.Errorf("wasitter: predicate metadata points outside guest memory")
 	}
 	steps := make([]QueryPredicateStep, 0, required/8)
 	for off := uint32(0); off < required; off += 8 {
@@ -1029,7 +1029,7 @@ func (q *Query) CaptureQuantifiersE(pattern uint32) ([]CaptureQuantifier, error)
 		return nil, err
 	}
 	if pattern >= q.PatternCount() {
-		return nil, fmt.Errorf("sitterwasm: pattern index %d out of range", pattern)
+		return nil, fmt.Errorf("wasitter: pattern index %d out of range", pattern)
 	}
 	count := q.CaptureCount()
 	result := make([]CaptureQuantifier, count)
@@ -2042,7 +2042,7 @@ func (q *Query) Close() error {
 		// been canceled.  A canceled context can make wazero skip the guest call
 		// entirely, leaving the query allocation live in an otherwise usable
 		// module.
-		_, _, err := q.runtime.call(context.Background(), []string{"tsw_query_delete", "sitterwasm_query_delete", "ts_query_delete", "query_delete"}, uint64(handle))
+		_, _, err := q.runtime.call(context.Background(), []string{"tsw_query_delete", "wasitter_query_delete", "ts_query_delete", "query_delete"}, uint64(handle))
 		if errors.Is(err, ErrClosed) {
 			return nil
 		}
@@ -2055,11 +2055,11 @@ func (q *Query) Close() error {
 func (q *Query) compileNative(source string) (uint32, error, bool) {
 	r := q.runtime
 	if uint64(len(source)) > uint64(^uint32(0)) {
-		return 0, fmt.Errorf("sitterwasm: query source exceeds uint32 wasm offset"), true
+		return 0, fmt.Errorf("wasitter: query source exceeds uint32 wasm offset"), true
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fn, fnName, err := r.function("tsw_query_new", "sitterwasm_query_new", "ts_query_new", "query_new")
+	fn, fnName, err := r.function("tsw_query_new", "wasitter_query_new", "ts_query_new", "query_new")
 	if err != nil {
 		if isUnsupported(err) {
 			return 0, nil, false
@@ -2090,7 +2090,7 @@ func (q *Query) compileNative(source string) (uint32, error, bool) {
 	}
 	defer r.freeLocked(ptr)
 	if mem := r.mod.Memory(); mem == nil || !mem.Write(ptr, []byte(source)) {
-		return 0, fmt.Errorf("sitterwasm: cannot write query source"), true
+		return 0, fmt.Errorf("wasitter: cannot write query source"), true
 	}
 	var errorPtr uint32
 	if len(paramTypes) == 4 {
@@ -4575,7 +4575,7 @@ func (c *QueryCursor) releaseTreeLifeLocked() {
 }
 
 // Exec starts a query-cursor execution at node. The value-oriented API accepts
-// both Node and *Node so code written against either the original sitterwasm
+// both Node and *Node so code written against either the original wasitter
 // binding or the upstream go-tree-sitter binding can share the same call site.
 // A nil *Node is treated as an invalid/null node and returns ErrInvalidHandle.
 func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
@@ -4587,7 +4587,7 @@ func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
 	}
 	node, nodeOK := nodeValueArg(nodeArg)
 	if !nodeOK {
-		return fmt.Errorf("sitterwasm: query cursor node must be Node or *Node, got %T", nodeArg)
+		return fmt.Errorf("wasitter: query cursor node must be Node or *Node, got %T", nodeArg)
 	}
 	if err := query.ensureOpen(); err != nil {
 		return err
@@ -4596,7 +4596,7 @@ func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
 		return ErrInvalidHandle
 	}
 	if node.tree == nil || node.tree.rt != query.runtime {
-		return fmt.Errorf("sitterwasm: query and node belong to different runtimes")
+		return fmt.Errorf("wasitter: query and node belong to different runtimes")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -4664,7 +4664,7 @@ func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
 	c.removedMatches = nil
 	if query.native {
 		if c.handle == 0 {
-			result, fnName, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_new", "sitterwasm_query_cursor_new", "ts_query_cursor_new", "query_cursor_new"})
+			result, fnName, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_new", "wasitter_query_cursor_new", "ts_query_cursor_new", "query_cursor_new"})
 			if err == nil && len(result) != 0 {
 				handle, ok := checkedU32(result[0])
 				if !ok {
@@ -4677,7 +4677,7 @@ func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
 			}
 		}
 		if c.handle != 0 {
-			_, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_exec", "sitterwasm_query_cursor_exec", "ts_query_cursor_exec", "query_cursor_exec"}, uint64(c.handle), uint64(query.handle.Load()), uint64(node.handle))
+			_, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_exec", "wasitter_query_cursor_exec", "ts_query_cursor_exec", "query_cursor_exec"}, uint64(c.handle), uint64(query.handle.Load()), uint64(node.handle))
 			if err == nil {
 				// Resolve iterator exports once per execution.  The cursor ABI is
 				// intentionally optional and older/experimental bridges can expose
@@ -4687,13 +4687,13 @@ func (c *QueryCursor) Exec(query *Query, nodeArg any) error {
 				r.mu.Lock()
 				_, _, matchErr := r.function(
 					"tsw_query_cursor_next_match",
-					"sitterwasm_query_cursor_next_match",
+					"wasitter_query_cursor_next_match",
 					"ts_query_cursor_next_match",
 					"query_cursor_next_match",
 				)
 				_, _, captureErr := r.function(
 					"tsw_query_cursor_next_capture",
-					"sitterwasm_query_cursor_next_capture",
+					"wasitter_query_cursor_next_capture",
 					"ts_query_cursor_next_capture",
 					"query_cursor_next_capture",
 				)
@@ -4754,19 +4754,19 @@ func (c *QueryCursor) applyNativeOptionsLocked() {
 	}
 	r := c.runtime
 	if c.byteRangeSet {
-		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_byte_range", "sitterwasm_query_cursor_set_byte_range", "ts_query_cursor_set_byte_range", "query_cursor_set_byte_range"}, uint64(c.handle), uint64(c.byteStart), uint64(c.byteEnd))
+		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_byte_range", "wasitter_query_cursor_set_byte_range", "ts_query_cursor_set_byte_range", "query_cursor_set_byte_range"}, uint64(c.handle), uint64(c.byteStart), uint64(c.byteEnd))
 	}
 	if c.pointRangeSet {
-		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_point_range", "sitterwasm_query_cursor_set_point_range", "ts_query_cursor_set_point_range", "query_cursor_set_point_range"}, uint64(c.handle), packPoint(c.pointStart), packPoint(c.pointEnd))
+		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_point_range", "wasitter_query_cursor_set_point_range", "ts_query_cursor_set_point_range", "query_cursor_set_point_range"}, uint64(c.handle), packPoint(c.pointStart), packPoint(c.pointEnd))
 	}
 	if c.maxDepthSet {
-		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_max_start_depth", "sitterwasm_query_cursor_set_max_start_depth", "ts_query_cursor_set_max_start_depth", "query_cursor_set_max_start_depth"}, uint64(c.handle), uint64(c.maxDepth))
+		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_max_start_depth", "wasitter_query_cursor_set_max_start_depth", "ts_query_cursor_set_max_start_depth", "query_cursor_set_max_start_depth"}, uint64(c.handle), uint64(c.maxDepth))
 	}
 	if c.matchLimitSet {
-		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_match_limit", "sitterwasm_query_cursor_set_match_limit", "ts_query_cursor_set_match_limit", "query_cursor_set_match_limit"}, uint64(c.handle), uint64(c.matchLimit))
+		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_match_limit", "wasitter_query_cursor_set_match_limit", "ts_query_cursor_set_match_limit", "query_cursor_set_match_limit"}, uint64(c.handle), uint64(c.matchLimit))
 	}
 	if c.timeoutSet {
-		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_timeout_micros", "sitterwasm_query_cursor_set_timeout_micros", "ts_query_cursor_set_timeout_micros", "query_cursor_set_timeout_micros"}, uint64(c.handle), c.timeoutMicros)
+		_, _, _ = r.call(r.Context(), []string{"tsw_query_cursor_set_timeout_micros", "wasitter_query_cursor_set_timeout_micros", "ts_query_cursor_set_timeout_micros", "query_cursor_set_timeout_micros"}, uint64(c.handle), c.timeoutMicros)
 	}
 }
 
@@ -4785,7 +4785,7 @@ func (c *QueryCursor) deleteNativeHandleLocked() {
 		return
 	}
 	if handle != 0 {
-		_, _, _ = r.call(context.Background(), []string{"tsw_query_cursor_delete", "sitterwasm_query_cursor_delete", "ts_query_cursor_delete", "query_cursor_delete"}, uint64(handle))
+		_, _, _ = r.call(context.Background(), []string{"tsw_query_cursor_delete", "wasitter_query_cursor_delete", "ts_query_cursor_delete", "query_cursor_delete"}, uint64(handle))
 	}
 	if scratchPtr != 0 && !r.closedState() {
 		r.mu.Lock()
@@ -5105,7 +5105,7 @@ func (c *QueryCursor) SetByteRange(start, end any) *QueryCursor {
 	c.byteStart, c.byteEnd = start32, end32
 	c.byteRangeSet = true
 	if c.handle != 0 && c.runtime != nil {
-		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_byte_range", "sitterwasm_query_cursor_set_byte_range", "ts_query_cursor_set_byte_range", "query_cursor_set_byte_range"}, uint64(c.handle), uint64(start32), uint64(end32))
+		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_byte_range", "wasitter_query_cursor_set_byte_range", "ts_query_cursor_set_byte_range", "query_cursor_set_byte_range"}, uint64(c.handle), uint64(start32), uint64(end32))
 	}
 	return c
 }
@@ -5123,7 +5123,7 @@ func (c *QueryCursor) SetByteRangeE(start, end any) error {
 		end32 = ^uint32(0)
 	}
 	if !okStart || !okEnd || start32 > end32 {
-		return fmt.Errorf("sitterwasm: invalid byte range")
+		return fmt.Errorf("wasitter: invalid byte range")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -5134,7 +5134,7 @@ func (c *QueryCursor) SetByteRangeE(start, end any) error {
 	if c.handle == 0 || c.runtime == nil {
 		return nil
 	}
-	result, name, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_byte_range", "sitterwasm_query_cursor_set_byte_range", "ts_query_cursor_set_byte_range", "query_cursor_set_byte_range"}, uint64(c.handle), uint64(start32), uint64(end32))
+	result, name, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_byte_range", "wasitter_query_cursor_set_byte_range", "ts_query_cursor_set_byte_range", "query_cursor_set_byte_range"}, uint64(c.handle), uint64(start32), uint64(end32))
 	if err != nil {
 		if isUnsupported(err) {
 			return nil
@@ -5166,7 +5166,7 @@ func (c *QueryCursor) SetPointRange(start, end Point) *QueryCursor {
 	c.pointStart, c.pointEnd = start, end
 	c.pointRangeSet = true
 	if c.handle != 0 && c.runtime != nil {
-		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_point_range", "sitterwasm_query_cursor_set_point_range", "ts_query_cursor_set_point_range", "query_cursor_set_point_range"}, uint64(c.handle), packPoint(start), packPoint(end))
+		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_point_range", "wasitter_query_cursor_set_point_range", "ts_query_cursor_set_point_range", "query_cursor_set_point_range"}, uint64(c.handle), packPoint(start), packPoint(end))
 	}
 	return c
 }
@@ -5181,7 +5181,7 @@ func (c *QueryCursor) SetPointRangeE(start, end Point) error {
 		end = Point{Row: ^uint32(0), Column: ^uint32(0)}
 	}
 	if comparePoint(start, end) > 0 {
-		return fmt.Errorf("sitterwasm: invalid point range")
+		return fmt.Errorf("wasitter: invalid point range")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -5192,7 +5192,7 @@ func (c *QueryCursor) SetPointRangeE(start, end Point) error {
 	if c.handle == 0 || c.runtime == nil {
 		return nil
 	}
-	result, name, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_point_range", "sitterwasm_query_cursor_set_point_range", "ts_query_cursor_set_point_range", "query_cursor_set_point_range"}, uint64(c.handle), packPoint(start), packPoint(end))
+	result, name, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_point_range", "wasitter_query_cursor_set_point_range", "ts_query_cursor_set_point_range", "query_cursor_set_point_range"}, uint64(c.handle), packPoint(start), packPoint(end))
 	if err != nil {
 		if isUnsupported(err) {
 			return nil
@@ -5222,7 +5222,7 @@ func (c *QueryCursor) SetMatchLimit(limit any) *QueryCursor {
 	}
 	c.matchLimit, c.matchLimitSet = limit32, true
 	if c.runtime != nil && c.handle != 0 {
-		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_match_limit", "sitterwasm_query_cursor_set_match_limit", "ts_query_cursor_set_match_limit", "query_cursor_set_match_limit"}, uint64(c.handle), uint64(limit32))
+		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_match_limit", "wasitter_query_cursor_set_match_limit", "ts_query_cursor_set_match_limit", "query_cursor_set_match_limit"}, uint64(c.handle), uint64(limit32))
 	}
 	return c
 }
@@ -5234,7 +5234,7 @@ func (c *QueryCursor) SetMatchLimitE(limit any) error {
 	}
 	limit32, ok := queryUint32Value(limit)
 	if !ok {
-		return fmt.Errorf("sitterwasm: invalid match limit")
+		return fmt.Errorf("wasitter: invalid match limit")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -5247,7 +5247,7 @@ func (c *QueryCursor) SetMatchLimitE(limit any) error {
 	}
 	_, _, err := c.runtime.call(c.runtime.Context(), []string{
 		"tsw_query_cursor_set_match_limit",
-		"sitterwasm_query_cursor_set_match_limit",
+		"wasitter_query_cursor_set_match_limit",
 		"ts_query_cursor_set_match_limit",
 		"query_cursor_set_match_limit",
 	}, uint64(c.handle), uint64(limit32))
@@ -5269,7 +5269,7 @@ func (c *QueryCursor) MatchLimit() uint32 {
 		return 0
 	}
 	if c.runtime != nil && c.handle != 0 {
-		result, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_match_limit", "sitterwasm_query_cursor_match_limit", "ts_query_cursor_match_limit", "query_cursor_match_limit"}, uint64(c.handle))
+		result, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_match_limit", "wasitter_query_cursor_match_limit", "ts_query_cursor_match_limit", "query_cursor_match_limit"}, uint64(c.handle))
 		if err == nil && len(result) != 0 {
 			if value, ok := checkedU32(result[0]); ok {
 				return value
@@ -5290,7 +5290,7 @@ func (c *QueryCursor) DidExceedMatchLimit() bool {
 	if c.closed.Load() || c.runtime == nil || c.handle == 0 {
 		return false
 	}
-	result, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_did_exceed_match_limit", "sitterwasm_query_cursor_did_exceed_match_limit", "ts_query_cursor_did_exceed_match_limit", "query_cursor_did_exceed_match_limit"}, uint64(c.handle))
+	result, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_did_exceed_match_limit", "wasitter_query_cursor_did_exceed_match_limit", "ts_query_cursor_did_exceed_match_limit", "query_cursor_did_exceed_match_limit"}, uint64(c.handle))
 	return err == nil && len(result) != 0 && result[0] != 0
 }
 
@@ -5307,7 +5307,7 @@ func (c *QueryCursor) SetTimeoutMicros(timeout uint64) *QueryCursor {
 	}
 	c.timeoutMicros, c.timeoutSet = timeout, true
 	if c.runtime != nil && c.handle != 0 {
-		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_timeout_micros", "sitterwasm_query_cursor_set_timeout_micros", "ts_query_cursor_set_timeout_micros", "query_cursor_set_timeout_micros"}, uint64(c.handle), timeout)
+		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_timeout_micros", "wasitter_query_cursor_set_timeout_micros", "ts_query_cursor_set_timeout_micros", "query_cursor_set_timeout_micros"}, uint64(c.handle), timeout)
 	}
 	return c
 }
@@ -5323,7 +5323,7 @@ func (c *QueryCursor) TimeoutMicros() uint64 {
 		return 0
 	}
 	if c.runtime != nil && c.handle != 0 {
-		result, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_timeout_micros", "sitterwasm_query_cursor_timeout_micros", "ts_query_cursor_timeout_micros", "query_cursor_timeout_micros"}, uint64(c.handle))
+		result, _, err := c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_timeout_micros", "wasitter_query_cursor_timeout_micros", "ts_query_cursor_timeout_micros", "query_cursor_timeout_micros"}, uint64(c.handle))
 		if err == nil && len(result) != 0 {
 			return result[0]
 		}
@@ -5333,7 +5333,7 @@ func (c *QueryCursor) TimeoutMicros() uint64 {
 
 // SetMaxStartDepth sets the maximum depth at which a query may start.  The
 // upstream Go binding accepts *uint (with nil clearing the limit), while the
-// original sitterwasm API accepted uint32.  Accept the common fixed-width and
+// original wasitter API accepted uint32.  Accept the common fixed-width and
 // native-width forms through any so both call styles remain source-compatible.
 func (c *QueryCursor) SetMaxStartDepth(depth any) *QueryCursor {
 	if c == nil || c.closed.Load() {
@@ -5350,7 +5350,7 @@ func (c *QueryCursor) SetMaxStartDepth(depth any) *QueryCursor {
 	}
 	c.maxDepth, c.maxDepthSet = value, true
 	if c.runtime != nil && c.handle != 0 {
-		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_max_start_depth", "sitterwasm_query_cursor_set_max_start_depth", "ts_query_cursor_set_max_start_depth", "query_cursor_set_max_start_depth"}, uint64(c.handle), uint64(value))
+		_, _, _ = c.runtime.call(c.runtime.Context(), []string{"tsw_query_cursor_set_max_start_depth", "wasitter_query_cursor_set_max_start_depth", "ts_query_cursor_set_max_start_depth", "query_cursor_set_max_start_depth"}, uint64(c.handle), uint64(value))
 	}
 	c.mu.Unlock()
 	return c
@@ -5490,7 +5490,7 @@ func (c *QueryCursor) RemoveMatchE(matchID uint32) error {
 		}
 		_, _, err := c.runtime.call(c.runtime.Context(), []string{
 			"tsw_query_cursor_remove_match",
-			"sitterwasm_query_cursor_remove_match",
+			"wasitter_query_cursor_remove_match",
 			"ts_query_cursor_remove_match",
 			"query_cursor_remove_match",
 		}, uint64(c.handle), uint64(matchID))
@@ -5575,7 +5575,7 @@ func (c *QueryCursor) NextMatch() (matchResult QueryMatch, foundResult bool) {
 			// A rejected match still owns wrappers allocated in the guest.
 			for _, capture := range raw.captures {
 				if capture.node != 0 {
-					_, _, _ = c.runtime.call(context.Background(), []string{"tsw_node_delete", "sitterwasm_node_delete", "node_delete"}, uint64(capture.node))
+					_, _, _ = c.runtime.call(context.Background(), []string{"tsw_node_delete", "wasitter_node_delete", "node_delete"}, uint64(capture.node))
 				}
 			}
 		}
@@ -5651,7 +5651,7 @@ func (c *QueryCursor) nextNativeMatchLocked() (rawQueryMatch, bool) {
 	r := c.runtime
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fn, _, err := r.function("tsw_query_cursor_next_match", "sitterwasm_query_cursor_next_match", "ts_query_cursor_next_match", "query_cursor_next_match")
+	fn, _, err := r.function("tsw_query_cursor_next_match", "wasitter_query_cursor_next_match", "ts_query_cursor_next_match", "query_cursor_next_match")
 	if err != nil {
 		return rawQueryMatch{}, false
 	}
@@ -5817,7 +5817,7 @@ func (c *QueryCursor) NextCapture() (captureResult QueryCapture, foundResult boo
 							for i := registered; i < len(raw.captures); i++ {
 								if raw.captures[i].node != 0 {
 									_, _, _ = c.runtime.call(context.Background(), []string{
-										"tsw_node_delete", "sitterwasm_node_delete", "node_delete",
+										"tsw_node_delete", "wasitter_node_delete", "node_delete",
 									}, uint64(raw.captures[i].node))
 								}
 							}
@@ -5863,7 +5863,7 @@ func (c *QueryCursor) NextCapture() (captureResult QueryCapture, foundResult boo
 							for i := len(accepted); i < len(raw.captures); i++ {
 								if raw.captures[i].node != 0 {
 									_, _, _ = c.runtime.call(context.Background(), []string{
-										"tsw_node_delete", "sitterwasm_node_delete", "node_delete",
+										"tsw_node_delete", "wasitter_node_delete", "node_delete",
 									}, uint64(raw.captures[i].node))
 								}
 							}
@@ -5888,7 +5888,7 @@ func (c *QueryCursor) NextCapture() (captureResult QueryCapture, foundResult boo
 				// Tree.Close.
 				for _, capture := range raw.captures {
 					if capture.node != 0 {
-						_, _, _ = c.runtime.call(context.Background(), []string{"tsw_node_delete", "sitterwasm_node_delete", "node_delete"}, uint64(capture.node))
+						_, _, _ = c.runtime.call(context.Background(), []string{"tsw_node_delete", "wasitter_node_delete", "node_delete"}, uint64(capture.node))
 					}
 				}
 			}
@@ -5990,7 +5990,7 @@ func (c *QueryCursor) nativeCaptureSupported() bool {
 	defer r.mu.Unlock()
 	_, _, err := r.function(
 		"tsw_query_cursor_next_capture",
-		"sitterwasm_query_cursor_next_capture",
+		"wasitter_query_cursor_next_capture",
 		"ts_query_cursor_next_capture",
 		"query_cursor_next_capture",
 	)
@@ -6001,7 +6001,7 @@ func (c *QueryCursor) nextNativeCaptureLocked() (rawQueryCapture, bool) {
 	r := c.runtime
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fn, _, err := r.function("tsw_query_cursor_next_capture", "sitterwasm_query_cursor_next_capture", "ts_query_cursor_next_capture", "query_cursor_next_capture")
+	fn, _, err := r.function("tsw_query_cursor_next_capture", "wasitter_query_cursor_next_capture", "ts_query_cursor_next_capture", "query_cursor_next_capture")
 	if err != nil {
 		return rawQueryCapture{}, false
 	}
@@ -6046,7 +6046,7 @@ func (c *QueryCursor) nativePredicateCaptureSupported() bool {
 	defer r.mu.Unlock()
 	_, _, err := r.function(
 		"tsw_query_cursor_next_capture_match",
-		"sitterwasm_query_cursor_next_capture_match",
+		"wasitter_query_cursor_next_capture_match",
 		"ts_query_cursor_next_capture_match",
 		"query_cursor_next_capture_match",
 	)
@@ -6062,7 +6062,7 @@ func (c *QueryCursor) nextNativePredicateCaptureLocked() (rawPredicateCaptureMat
 	defer r.mu.Unlock()
 	fn, fnName, err := r.function(
 		"tsw_query_cursor_next_capture_match",
-		"sitterwasm_query_cursor_next_capture_match",
+		"wasitter_query_cursor_next_capture_match",
 		"ts_query_cursor_next_capture_match",
 		"query_cursor_next_capture_match",
 	)
@@ -6166,7 +6166,7 @@ func (c *QueryCursor) nextPredicateCaptureNativeLocked() (QueryCapture, bool) {
 			for _, capture := range raw.captures {
 				if capture.node != 0 {
 					_, _, _ = c.runtime.call(context.Background(), []string{
-						"tsw_node_delete", "sitterwasm_node_delete", "node_delete",
+						"tsw_node_delete", "wasitter_node_delete", "node_delete",
 					}, uint64(capture.node))
 				}
 			}
@@ -6218,7 +6218,7 @@ func (c *QueryCursor) nextPredicateCaptureNativeLocked() (QueryCapture, bool) {
 					continue
 				}
 				_, _, _ = c.runtime.call(context.Background(), []string{
-					"tsw_node_delete", "sitterwasm_node_delete", "node_delete",
+					"tsw_node_delete", "wasitter_node_delete", "node_delete",
 				}, uint64(capture.node))
 			}
 			if node.IsNull() {
@@ -6245,7 +6245,7 @@ func (c *QueryCursor) nextPredicateCaptureNativeLocked() (QueryCapture, bool) {
 		for _, capture := range raw.captures {
 			if capture.node != 0 {
 				_, _, _ = c.runtime.call(context.Background(), []string{
-					"tsw_node_delete", "sitterwasm_node_delete", "node_delete",
+					"tsw_node_delete", "wasitter_node_delete", "node_delete",
 				}, uint64(capture.node))
 			}
 		}
@@ -6260,7 +6260,7 @@ func (c *QueryCursor) nextPredicateCaptureNativeLocked() (QueryCapture, bool) {
 		}
 		_, _, removeErr := c.runtime.call(c.runtime.Context(), []string{
 			"tsw_query_cursor_remove_match",
-			"sitterwasm_query_cursor_remove_match",
+			"wasitter_query_cursor_remove_match",
 			"ts_query_cursor_remove_match",
 			"query_cursor_remove_match",
 		}, uint64(c.handle), uint64(raw.match.ID))
@@ -6324,7 +6324,7 @@ func (c *QueryCursor) Close() error {
 	// destructor returns is it safe to let Tree.Close acquire its write lock.
 	var closeErr error
 	if handle != 0 && r != nil && !r.closedState() {
-		_, _, err := r.call(context.Background(), []string{"tsw_query_cursor_delete", "sitterwasm_query_cursor_delete", "ts_query_cursor_delete", "query_cursor_delete"}, uint64(handle))
+		_, _, err := r.call(context.Background(), []string{"tsw_query_cursor_delete", "wasitter_query_cursor_delete", "ts_query_cursor_delete", "query_cursor_delete"}, uint64(handle))
 		if err != nil && !isUnsupported(err) && !errors.Is(err, ErrClosed) {
 			closeErr = err
 		}
@@ -6358,11 +6358,11 @@ func (r *Runtime) lastErrorLocked() string {
 	if r == nil || r.mod == nil {
 		return ""
 	}
-	ptrFn, _, err := r.function("tsw_last_error_ptr", "sitterwasm_last_error_ptr", "last_error_ptr")
+	ptrFn, _, err := r.function("tsw_last_error_ptr", "wasitter_last_error_ptr", "last_error_ptr")
 	if err != nil {
 		return ""
 	}
-	lenFn, _, err := r.function("tsw_last_error_len", "sitterwasm_last_error_len", "last_error_len")
+	lenFn, _, err := r.function("tsw_last_error_len", "wasitter_last_error_len", "last_error_len")
 	if err != nil {
 		return ""
 	}

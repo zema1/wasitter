@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // A parser close publishes its lifecycle bit before waiting for an in-flight
@@ -15,7 +15,7 @@ import (
 // destroyed.  The post-call progress hook gives this test a deterministic
 // point at which to race Close without relying on parser timing.
 func TestParserCloseRacingParseDoesNotReturnTree(t *testing.T) {
-	parser, runtime, err := sitterwasm.NewJSONParser(context.Background())
+	parser, runtime, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatalf("NewJSONParser: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestParserCloseRacingParseDoesNotReturnTree(t *testing.T) {
 			context.Background(),
 			[]byte(`{"close":true}`),
 			nil,
-			&sitterwasm.ParseOptions{ProgressCallback: func(state sitterwasm.ParseState) bool {
+			&wasitter.ParseOptions{ProgressCallback: func(state wasitter.ParseState) bool {
 				if state.CurrentByteOffset != 0 {
 					close(entered)
 					<-release
@@ -54,7 +54,7 @@ func TestParserCloseRacingParseDoesNotReturnTree(t *testing.T) {
 
 	select {
 	case parseErr := <-parseDone:
-		if !errors.Is(parseErr, sitterwasm.ErrClosed) {
+		if !errors.Is(parseErr, wasitter.ErrClosed) {
 			t.Fatalf("racing parse error = %v, want ErrClosed", parseErr)
 		}
 	case <-time.After(2 * time.Second):

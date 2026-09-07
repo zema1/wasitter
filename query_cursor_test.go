@@ -1,10 +1,10 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"errors"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func TestQueryMatchesAndCursor(t *testing.T) {
@@ -13,7 +13,7 @@ func TestQueryMatchesAndCursor(t *testing.T) {
 	if lang == nil {
 		t.Fatal("Parser.Language() returned nil after SetLanguage")
 	}
-	query, err := sitterwasm.NewQuery(lang, `(number) @number`)
+	query, err := wasitter.NewQuery(lang, `(number) @number`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestQueryMatchesAndCursor(t *testing.T) {
 		}
 	}
 
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	t.Cleanup(func() { _ = cursor.Close() })
 	if err := cursor.Exec(query, tree.RootNode()); err != nil {
 		t.Fatalf("QueryCursor.Exec: %v", err)
@@ -79,11 +79,11 @@ func TestQueryRejectsMalformedPattern(t *testing.T) {
 	if lang == nil {
 		t.Fatal("Parser.Language() returned nil")
 	}
-	query, err := sitterwasm.NewQuery(lang, `number @missing-parentheses`)
+	query, err := wasitter.NewQuery(lang, `number @missing-parentheses`)
 	if query != nil {
 		t.Error("malformed query returned a non-nil query")
 	}
-	var queryErr *sitterwasm.QueryError
+	var queryErr *wasitter.QueryError
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("error = %v, want *QueryError", err)
 	}
@@ -175,14 +175,14 @@ func TestTreeCursorOptionalNavigationAndFields(t *testing.T) {
 	if !cursor.GoToLastChild() || cursor.Node().Type() != "]" {
 		t.Fatalf("array last child = %q, want ]", cursor.Node().Type())
 	}
-	if cursor.GoToFirstChildForPoint(sitterwasm.Point{Row: 0, Column: 10}) {
+	if cursor.GoToFirstChildForPoint(wasitter.Point{Row: 0, Column: 10}) {
 		t.Errorf("leaf GoToFirstChildForPoint unexpectedly moved to %q", cursor.Node().Type())
 	}
 	cursor.Reset(root)
 	if cursor.Node().Type() != "document" || cursor.CurrentDepth() != 0 {
 		t.Errorf("Reset(root) = %q depth %d", cursor.Node().Type(), cursor.CurrentDepth())
 	}
-	if !cursor.GoToFirstChildForPoint(sitterwasm.Point{Row: 0, Column: 3}) {
+	if !cursor.GoToFirstChildForPoint(wasitter.Point{Row: 0, Column: 3}) {
 		t.Fatal("GoToFirstChildForPoint did not enter object")
 	}
 	if cursor.Node().Type() != "object" {
@@ -192,7 +192,7 @@ func TestTreeCursorOptionalNavigationAndFields(t *testing.T) {
 
 func TestQueryAndCursorClosedErrors(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1]`)
-	query, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	query, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
@@ -202,23 +202,23 @@ func TestQueryAndCursorClosedErrors(t *testing.T) {
 	if got := query.Matches(tree.RootNode()); got != nil {
 		t.Errorf("closed query matches = %#v, want nil", got)
 	}
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	if err := cursor.Close(); err != nil {
 		t.Fatalf("QueryCursor.Close: %v", err)
 	}
-	if err := cursor.Exec(query, tree.RootNode()); !errors.Is(err, sitterwasm.ErrClosed) {
+	if err := cursor.Exec(query, tree.RootNode()); !errors.Is(err, wasitter.ErrClosed) {
 		t.Errorf("closed cursor Exec error = %v, want ErrClosed", err)
 	}
 }
 
 func TestQueryCursorOptionsConfiguredBeforeExec(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 
 	// Zero is a valid range boundary (Tree-sitter interprets an end of zero as
@@ -249,7 +249,7 @@ func TestQueryCursorOptionsConfiguredBeforeExec(t *testing.T) {
 		t.Fatal("byte range cursor returned an extra match")
 	}
 
-	if err := cursor.SetPointRangeE(sitterwasm.Point{Row: 1, Column: 0}, sitterwasm.Point{Row: 1, Column: 0}); err != nil {
+	if err := cursor.SetPointRangeE(wasitter.Point{Row: 1, Column: 0}, wasitter.Point{Row: 1, Column: 0}); err != nil {
 		t.Fatalf("SetPointRangeE: %v", err)
 	}
 	if err := cursor.Exec(q, tree.RootNode()); err != nil {
@@ -262,12 +262,12 @@ func TestQueryCursorOptionsConfiguredBeforeExec(t *testing.T) {
 	if err := cursor.SetByteRangeE(5, 4); err == nil {
 		t.Fatal("SetByteRangeE accepted a reversed range")
 	}
-	if err := cursor.SetPointRangeE(sitterwasm.Point{Row: 2}, sitterwasm.Point{Row: 1}); err == nil {
+	if err := cursor.SetPointRangeE(wasitter.Point{Row: 2}, wasitter.Point{Row: 1}); err == nil {
 		t.Fatal("SetPointRangeE accepted a reversed range")
 	}
 }
 
-func countCursorMatches(cursor *sitterwasm.QueryCursor) int {
+func countCursorMatches(cursor *wasitter.QueryCursor) int {
 	count := 0
 	for {
 		if _, ok := cursor.NextMatch(); !ok {
@@ -279,12 +279,12 @@ func countCursorMatches(cursor *sitterwasm.QueryCursor) int {
 
 func TestQueryCursorOptionsBeforeExecAreApplied(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	cursor.SetMatchLimit(7)
 	cursor.SetTimeoutMicros(1234)

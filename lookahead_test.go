@@ -1,14 +1,14 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func TestLookaheadIteratorJSON(t *testing.T) {
-	p, rt, err := sitterwasm.NewJSONParser(context.Background())
+	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestLookaheadIteratorJSON(t *testing.T) {
 	if state == 0 {
 		t.Skip("JSON fixture did not expose a non-zero parse state")
 	}
-	it, err := sitterwasm.NewLookaheadIterator(lang, state)
+	it, err := wasitter.NewLookaheadIterator(lang, state)
 	if err != nil {
 		t.Fatal(err)
 	}

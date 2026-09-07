@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please report security issues privately through
-[GitHub's security advisory form](https://github.com/zema1/sitterwasm/security/advisories/new).
+[GitHub's security advisory form](https://github.com/zema1/wasitter/security/advisories/new).
 Include the affected version or commit, a minimal reproducer, the runtime and
 grammar module involved, and the impact you observed. Do not open a public
 issue for an unpatched vulnerability.

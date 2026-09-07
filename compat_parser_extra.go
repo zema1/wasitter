@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 
 // ParseInputCtx parses callback-provided input with an explicit context.  It
 // follows the argument order used by the established Go bindings
-// (oldTree, input), while preserving sitterwasm's error-aware return value.
+// (oldTree, input), while preserving wasitter's error-aware return value.
 // The stable WASM bridge currently accepts UTF-8 callbacks; callers needing
 // UTF-16 should use ParseUTF16LEWith/ParseUTF16BEWith so the code-unit width is
 // unambiguous.
@@ -28,7 +28,7 @@ func (p *Parser) ParseInputCtx(ctx context.Context, oldTree *Tree, input Input) 
 }
 
 // ParseInputContext is a context-first spelling for ParseInputCtx.  It is
-// useful in codebases that use the sitterwasm argument convention elsewhere.
+// useful in codebases that use the wasitter argument convention elsewhere.
 func (p *Parser) ParseInputContext(ctx context.Context, input Input, oldTree *Tree) (*Tree, error) {
 	return p.ParseInputCtx(ctx, oldTree, input)
 }
@@ -90,12 +90,12 @@ func collectUTF16BytesInput(read ReadFunc, order binary.ByteOrder) ([]byte, erro
 		chunk := read(uint32(len(all)), point)
 		if len(chunk) == 0 {
 			if havePending {
-				return nil, fmt.Errorf("sitterwasm: UTF-16 input has odd byte length %d", len(all))
+				return nil, fmt.Errorf("wasitter: UTF-16 input has odd byte length %d", len(all))
 			}
 			return all, nil
 		}
 		if uint64(len(all))+uint64(len(chunk)) > uint64(^uint32(0)) {
-			return nil, fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
+			return nil, fmt.Errorf("wasitter: input exceeds uint32 byte offset")
 		}
 		all = append(all, chunk...)
 		for _, b := range chunk {
@@ -120,5 +120,5 @@ func collectUTF16BytesInput(read ReadFunc, order binary.ByteOrder) ([]byte, erro
 			havePending = false
 		}
 	}
-	return nil, fmt.Errorf("sitterwasm: input callback exceeded %d calls: %w", maxCalls, io.ErrNoProgress)
+	return nil, fmt.Errorf("wasitter: input callback exceeded %d calls: %w", maxCalls, io.ErrNoProgress)
 }

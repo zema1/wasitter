@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for improving sitterwasm. Changes should preserve the behavior of the
+Thanks for improving wasitter. Changes should preserve the behavior of the
 upstream Tree-sitter runtime where the WebAssembly ABI allows it, and should
 keep the ordinary package build free of CGO.
 
@@ -63,7 +63,7 @@ Before tagging a release, a maintainer should:
    and `go vet ./...`.
 2. Run `mise run wasm-check`, `mise run native-test`, and the native benchmark
    smoke test.
-3. Verify every checked-in `sitterwasm-*.wasm` file has its matching checksum
+3. Verify every checked-in `wasitter-*.wasm` file has its matching checksum
    and that registry pins and third-party notices describe the shipped files.
 4. Review the public compatibility notes in `README.md` and record notable
    API, grammar, or runtime changes in the release notes.

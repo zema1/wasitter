@@ -1,6 +1,6 @@
 // Package grammarbuild contains the reproducible build plumbing for official
 // Tree-sitter grammar artifacts.  It deliberately has no dependency on the
-// public sitterwasm package so the command can be cross-compiled as a small,
+// public wasitter package so the command can be cross-compiled as a small,
 // CGO-free helper and mounted into the Docker builder image.
 package grammarbuild
 

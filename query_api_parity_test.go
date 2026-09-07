@@ -1,18 +1,18 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"errors"
 	"math"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // Upstream exposes QueryError.Error with a value receiver, so both the value
 // and pointer forms satisfy the standard error interface.
 var (
-	_ error = sitterwasm.QueryError{}
-	_ error = (*sitterwasm.QueryError)(nil)
+	_ error = wasitter.QueryError{}
+	_ error = (*wasitter.QueryError)(nil)
 )
 
 func TestQueryCaptureQuantifiersRejectsWidePatternIndex(t *testing.T) {
@@ -20,7 +20,7 @@ func TestQueryCaptureQuantifiersRejectsWidePatternIndex(t *testing.T) {
 		t.Skip("native uint is 32-bit")
 	}
 	p, _ := newJSONParser(t)
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestQueryCaptureQuantifiersRejectsWidePatternIndex(t *testing.T) {
 
 func TestQueryPredicatesForPatternOmitsDoneSeparators(t *testing.T) {
 	p, _ := newJSONParser(t)
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#eq? @n "1") (#match? @n "^1$"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "1") (#match? @n "^1$"))`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestQueryPredicatesForPatternOmitsDoneSeparators(t *testing.T) {
 			t.Fatalf("predicate group %d is empty", i)
 		}
 		for _, step := range group {
-			if step.Type == sitterwasm.QueryPredicateStepTypeDone {
+			if step.Type == wasitter.QueryPredicateStepTypeDone {
 				t.Fatalf("group %d contains Done separator: %#v", i, group)
 			}
 		}
@@ -59,7 +59,7 @@ func TestQueryPredicatesForPatternOmitsDoneSeparators(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(flat) == 0 || flat[len(flat)-1].Type != sitterwasm.QueryPredicateStepTypeDone {
+	if len(flat) == 0 || flat[len(flat)-1].Type != wasitter.QueryPredicateStepTypeDone {
 		t.Fatalf("flat predicate steps = %#v, want trailing Done", flat)
 	}
 }
@@ -68,41 +68,41 @@ func TestQueryErrorKindAndTypeCompatibility(t *testing.T) {
 	// Keep the public numbering aligned with go-tree-sitter v0.25. The C
 	// enum uses a separate zero-valued TSQueryErrorNone sentinel; conversion
 	// is tested below through a real malformed query.
-	want := []sitterwasm.QueryErrorKind{
-		sitterwasm.QueryErrorSyntax,
-		sitterwasm.QueryErrorNodeType,
-		sitterwasm.QueryErrorField,
-		sitterwasm.QueryErrorCapture,
-		sitterwasm.QueryErrorPredicate,
-		sitterwasm.QueryErrorStructure,
-		sitterwasm.QueryErrorLanguage,
+	want := []wasitter.QueryErrorKind{
+		wasitter.QueryErrorSyntax,
+		wasitter.QueryErrorNodeType,
+		wasitter.QueryErrorField,
+		wasitter.QueryErrorCapture,
+		wasitter.QueryErrorPredicate,
+		wasitter.QueryErrorStructure,
+		wasitter.QueryErrorLanguage,
 	}
 	for i, kind := range want {
 		if int(kind) != i {
 			t.Fatalf("QueryError kind %d = %d, want %d", i, kind, i)
 		}
-		if got := sitterwasm.QueryErrorTypeToString(kind); got == "unknown" || got == "" {
+		if got := wasitter.QueryErrorTypeToString(kind); got == "unknown" || got == "" {
 			t.Fatalf("QueryErrorTypeToString(%d) = %q", kind, got)
 		}
 	}
-	if got := sitterwasm.QueryErrorTypeToString(sitterwasm.QueryErrorNone); got != "none" {
+	if got := wasitter.QueryErrorTypeToString(wasitter.QueryErrorNone); got != "none" {
 		t.Fatalf("QueryErrorTypeToString(QueryErrorNone) = %q, want none", got)
 	}
-	if sitterwasm.QueryErrorType(sitterwasm.QueryErrorPredicate) != sitterwasm.QueryErrorPredicate {
+	if wasitter.QueryErrorType(wasitter.QueryErrorPredicate) != wasitter.QueryErrorPredicate {
 		t.Fatal("QueryErrorType is not an alias for QueryErrorKind")
 	}
 
 	p, _ := newJSONParser(t)
-	q, err := sitterwasm.NewQuery(p.Language(), `(does_not_exist) @x`)
+	q, err := wasitter.NewQuery(p.Language(), `(does_not_exist) @x`)
 	if q != nil {
 		q.Close()
 		t.Fatal("invalid query returned a query")
 	}
-	var queryErr *sitterwasm.QueryError
+	var queryErr *wasitter.QueryError
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("error = %v, want *QueryError", err)
 	}
-	if queryErr.Kind != sitterwasm.QueryErrorNodeType || queryErr.Type != sitterwasm.QueryErrorType(queryErr.Kind) {
+	if queryErr.Kind != wasitter.QueryErrorNodeType || queryErr.Type != wasitter.QueryErrorType(queryErr.Kind) {
 		t.Fatalf("error kind/type = %d/%d, want node type and matching alias", queryErr.Kind, queryErr.Type)
 	}
 }
@@ -113,19 +113,19 @@ func TestNewQueryAcceptsCurrentAndHistoricalArgumentOrders(t *testing.T) {
 	lang := p.Language()
 	forms := []struct {
 		name string
-		make func() (*sitterwasm.Query, error)
+		make func() (*wasitter.Query, error)
 	}{
-		{name: "language-string", make: func() (*sitterwasm.Query, error) {
-			return sitterwasm.NewQuery(lang, `(number) @n`)
+		{name: "language-string", make: func() (*wasitter.Query, error) {
+			return wasitter.NewQuery(lang, `(number) @n`)
 		}},
-		{name: "language-bytes", make: func() (*sitterwasm.Query, error) {
-			return sitterwasm.NewQuery(lang, []byte(`(number) @n`))
+		{name: "language-bytes", make: func() (*wasitter.Query, error) {
+			return wasitter.NewQuery(lang, []byte(`(number) @n`))
 		}},
-		{name: "bytes-language", make: func() (*sitterwasm.Query, error) {
-			return sitterwasm.NewQuery([]byte(`(number) @n`), lang)
+		{name: "bytes-language", make: func() (*wasitter.Query, error) {
+			return wasitter.NewQuery([]byte(`(number) @n`), lang)
 		}},
-		{name: "string-language", make: func() (*sitterwasm.Query, error) {
-			return sitterwasm.NewQuery(`(number) @n`, lang)
+		{name: "string-language", make: func() (*wasitter.Query, error) {
+			return wasitter.NewQuery(`(number) @n`, lang)
 		}},
 	}
 	for _, tc := range forms {
@@ -140,7 +140,7 @@ func TestNewQueryAcceptsCurrentAndHistoricalArgumentOrders(t *testing.T) {
 			}
 		})
 	}
-	q, err := sitterwasm.CompileQuery([]byte(`(number) @n`), lang)
+	q, err := wasitter.CompileQuery([]byte(`(number) @n`), lang)
 	if err != nil {
 		t.Fatalf("CompileQuery reversed form: %v", err)
 	}
@@ -150,16 +150,16 @@ func TestNewQueryAcceptsCurrentAndHistoricalArgumentOrders(t *testing.T) {
 func TestNewQueryRejectsUnsupportedArgumentPair(t *testing.T) {
 	p, _ := newJSONParser(t)
 	defer p.Close()
-	if q, err := sitterwasm.NewQuery(42, p.Language()); q != nil || !errors.Is(err, sitterwasm.ErrUnsupported) {
+	if q, err := wasitter.NewQuery(42, p.Language()); q != nil || !errors.Is(err, wasitter.ErrUnsupported) {
 		t.Fatalf("unsupported first argument returned query=%v err=%v", q, err)
 	}
-	if q, err := sitterwasm.NewQuery([]byte(`(number)`), nil); q != nil || !errors.Is(err, sitterwasm.ErrNoLanguage) {
+	if q, err := wasitter.NewQuery([]byte(`(number)`), nil); q != nil || !errors.Is(err, wasitter.ErrNoLanguage) {
 		t.Fatalf("nil language returned query=%v err=%v", q, err)
 	}
 }
 
 func TestQueryErrorUsesHistoricalTypeWhenKindUnset(t *testing.T) {
-	err := sitterwasm.QueryError{Type: sitterwasm.QueryErrorField, Message: "name", Row: 0, Column: 1}
+	err := wasitter.QueryError{Type: wasitter.QueryErrorField, Message: "name", Row: 0, Column: 1}
 	got := err.Error()
 	want := "Query error at 1:2. Invalid field name name"
 	if got != want {
@@ -173,7 +173,7 @@ func TestQueryErrorIncludesSourceTokenAndCaret(t *testing.T) {
 	cases := []struct {
 		name      string
 		source    string
-		kind      sitterwasm.QueryErrorKind
+		kind      wasitter.QueryErrorKind
 		offset    uint32
 		message   string
 		errorText string
@@ -181,7 +181,7 @@ func TestQueryErrorIncludesSourceTokenAndCaret(t *testing.T) {
 		{
 			name:      "node type",
 			source:    `(does_not_exist) @x`,
-			kind:      sitterwasm.QueryErrorNodeType,
+			kind:      wasitter.QueryErrorNodeType,
 			offset:    1,
 			message:   "does_not_exist",
 			errorText: "Query error at 1:2. Invalid node type does_not_exist",
@@ -189,7 +189,7 @@ func TestQueryErrorIncludesSourceTokenAndCaret(t *testing.T) {
 		{
 			name:      "field",
 			source:    `(pair badfield: (number))`,
-			kind:      sitterwasm.QueryErrorField,
+			kind:      wasitter.QueryErrorField,
 			offset:    6,
 			message:   "badfield",
 			errorText: "Query error at 1:7. Invalid field name badfield",
@@ -197,7 +197,7 @@ func TestQueryErrorIncludesSourceTokenAndCaret(t *testing.T) {
 		{
 			name:      "syntax",
 			source:    `(pair value: (number)`,
-			kind:      sitterwasm.QueryErrorSyntax,
+			kind:      wasitter.QueryErrorSyntax,
 			offset:    21,
 			message:   "(pair value: (number)\n                     ^",
 			errorText: "Query error at 1:22. Invalid syntax:\n(pair value: (number)\n                     ^",
@@ -205,12 +205,12 @@ func TestQueryErrorIncludesSourceTokenAndCaret(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(p.Language(), tc.source)
+			q, err := wasitter.NewQuery(p.Language(), tc.source)
 			if q != nil {
 				q.Close()
 				t.Fatal("invalid query unexpectedly compiled")
 			}
-			var queryErr *sitterwasm.QueryError
+			var queryErr *wasitter.QueryError
 			if !errors.As(err, &queryErr) {
 				t.Fatalf("error = %v, want *QueryError", err)
 			}
@@ -229,12 +229,12 @@ func TestQueryErrorIncludesSourceTokenAndCaret(t *testing.T) {
 
 func TestQueryRepeatedCapturesAndPredicateFiltering(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 1]`)
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @left @right)+`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @left @right)+`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatalf("Exec: %v", err)
@@ -265,7 +265,7 @@ func TestQueryRepeatedCapturesAndPredicateFiltering(t *testing.T) {
 
 	// Predicates are evaluated after the guest has produced a complete match;
 	// this must retain the same order while dropping the non-matching scalar.
-	predicate, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
+	predicate, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
 	if err != nil {
 		t.Fatalf("predicate query: %v", err)
 	}
@@ -294,12 +294,12 @@ func TestQueryRepeatedCapturesAndPredicateFiltering(t *testing.T) {
 
 func TestQueryCursorRemoveMatchDropsBufferedCaptures(t *testing.T) {
 	p, _, tree := parseJSON(t, `{"b": 2}`)
-	q, err := sitterwasm.NewQuery(p.Language(), `((pair key: (string) @key value: (_) @value) (#match? @key "b"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((pair key: (string) @key value: (_) @value) (#match? @key "b"))`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatalf("Exec: %v", err)
@@ -323,16 +323,16 @@ func TestQueryRejectsMalformedBuiltInPredicate(t *testing.T) {
 		`((number) @n (#match? @n "["))`,
 		`((number) @n (#set!))`,
 	} {
-		q, err := sitterwasm.NewQuery(p.Language(), source)
+		q, err := wasitter.NewQuery(p.Language(), source)
 		if q != nil {
 			q.Close()
 			t.Fatalf("%q unexpectedly compiled", source)
 		}
-		var queryErr *sitterwasm.QueryError
+		var queryErr *wasitter.QueryError
 		if !errors.As(err, &queryErr) {
 			t.Fatalf("%q error = %v, want *QueryError", source, err)
 		}
-		if queryErr.Kind != sitterwasm.QueryErrorPredicate {
+		if queryErr.Kind != wasitter.QueryErrorPredicate {
 			t.Fatalf("%q error kind = %d, want QueryErrorPredicate", source, queryErr.Kind)
 		}
 	}
@@ -366,12 +366,12 @@ func TestQueryPredicateValidationMatchesNativeErrorShape(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(p.Language(), tc.source)
+			q, err := wasitter.NewQuery(p.Language(), tc.source)
 			if q != nil {
 				_ = q.Close()
 				t.Fatal("malformed predicate unexpectedly compiled")
 			}
-			queryErr, ok := err.(*sitterwasm.QueryError)
+			queryErr, ok := err.(*wasitter.QueryError)
 			if !ok {
 				t.Fatalf("error = %T %v, want *QueryError", err, err)
 			}
@@ -388,7 +388,7 @@ func TestQueryPredicateValidationMatchesNativeErrorShape(t *testing.T) {
 func TestQueryMetadataParityAPI(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#eq? @n "1") (#set! "kind" "number") (#is? "kind"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "1") (#set! "kind" "number") (#is? "kind"))`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
@@ -404,13 +404,13 @@ func TestQueryMetadataParityAPI(t *testing.T) {
 		t.Fatal("missing capture unexpectedly found")
 	}
 	quantifiers := q.CaptureQuantifiers(0)
-	if len(quantifiers) != 1 || quantifiers[0] != sitterwasm.CaptureQuantifierOne {
+	if len(quantifiers) != 1 || quantifiers[0] != wasitter.CaptureQuantifierOne {
 		t.Fatalf("CaptureQuantifiers = %#v", quantifiers)
 	}
 	if len(q.TextPredicates) != 1 || len(q.TextPredicates[0]) != 1 {
 		t.Fatalf("TextPredicates = %#v", q.TextPredicates)
 	}
-	if q.TextPredicates[0][0].Type != sitterwasm.TextPredicateTypeEqString {
+	if q.TextPredicates[0][0].Type != wasitter.TextPredicateTypeEqString {
 		t.Fatalf("text predicate type = %v", q.TextPredicates[0][0].Type)
 	}
 	if got, ok := q.TextPredicates[0][0].Value.(string); !ok || got != "1" {
@@ -432,7 +432,7 @@ func TestQueryMetadataParityAPI(t *testing.T) {
 
 func TestQueryCapturePredicateMetadataUsesUpstreamValueType(t *testing.T) {
 	p, _ := newJSONParser(t)
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @left @right (#eq? @left @right))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @left @right (#eq? @left @right))`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestQueryCapturePredicateMetadataUsesUpstreamValueType(t *testing.T) {
 		t.Fatalf("TextPredicates = %#v", q.TextPredicates)
 	}
 	pred := q.TextPredicates[0][0]
-	if pred.Type != sitterwasm.TextPredicateTypeEqCapture {
+	if pred.Type != wasitter.TextPredicateTypeEqCapture {
 		t.Fatalf("predicate type = %v, want EqCapture", pred.Type)
 	}
 	value, ok := pred.Value.(uint)
@@ -453,12 +453,12 @@ func TestQueryCapturePredicateMetadataUsesUpstreamValueType(t *testing.T) {
 func TestQueryMatchRemovalAndCaptureHelpers(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -488,12 +488,12 @@ func TestQueryMatchRemovalAndCaptureHelpers(t *testing.T) {
 func TestQueryCursorNextCaptureSkipsZeroCaptureMatches(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(_)* @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(_)* @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -517,12 +517,12 @@ func TestQueryCursorNextCaptureSkipsZeroCaptureMatches(t *testing.T) {
 func TestQueryCursorNextCapturePreservesNativeOrder(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2]`)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `(array (number) @n) @a`)
+	q, err := wasitter.NewQuery(p.Language(), `(array (number) @n) @a`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)

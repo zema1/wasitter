@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -90,7 +90,7 @@ func (t *Tree) registerNode(handle uint32) Node {
 		// Root/child calls can race with Tree.Close. Reclaim a wrapper that
 		// was produced after closure instead of returning a dangling Node.
 		if t.rt != nil && !t.rt.closedState() {
-			_, _, _ = t.rt.call(context.Background(), []string{"tsw_node_delete", "sitterwasm_node_delete", "node_delete"}, uint64(handle))
+			_, _, _ = t.rt.call(context.Background(), []string{"tsw_node_delete", "wasitter_node_delete", "node_delete"}, uint64(handle))
 		}
 		return Node{}
 	}
@@ -155,7 +155,7 @@ func (t *Tree) LanguageE() (*Language, error) {
 	}
 	result, name, err := t.rt.call(context.Background(), []string{
 		"tsw_tree_language",
-		"sitterwasm_tree_language",
+		"wasitter_tree_language",
 		"ts_tree_language",
 		"tree_language",
 	}, uint64(t.handle.Load()))
@@ -224,7 +224,7 @@ func (t *Tree) RootNodeE() (Node, error) {
 		t.mu.RUnlock()
 		return Node{}, err
 	}
-	result, name, err := t.rt.call(context.Background(), []string{"tsw_tree_root", "tsw_tree_root_node", "sitterwasm_tree_root", "ts_tree_root_node", "tree_root"}, uint64(t.handle.Load()))
+	result, name, err := t.rt.call(context.Background(), []string{"tsw_tree_root", "tsw_tree_root_node", "wasitter_tree_root", "ts_tree_root_node", "tree_root"}, uint64(t.handle.Load()))
 	t.mu.RUnlock()
 	if err != nil {
 		return Node{}, err
@@ -253,7 +253,7 @@ func (t *Tree) RootNodeWithOffset(offset any, offsetPoint Point) (Node, error) {
 	}
 	offsetBytes, ok := uint32Arg(offset)
 	if !ok {
-		return Node{}, fmt.Errorf("sitterwasm: root offset must be a non-negative uint32, got %T", offset)
+		return Node{}, fmt.Errorf("wasitter: root offset must be a non-negative uint32, got %T", offset)
 	}
 	t.mu.RLock()
 	if err := t.ensureOpen(); err != nil {
@@ -297,7 +297,7 @@ func (t *Tree) CopyE() (*Tree, error) {
 		t.mu.RUnlock()
 		return nil, err
 	}
-	result, name, err := t.rt.call(context.Background(), []string{"tsw_tree_copy", "sitterwasm_tree_copy", "ts_tree_copy", "tree_copy"}, uint64(t.handle.Load()))
+	result, name, err := t.rt.call(context.Background(), []string{"tsw_tree_copy", "wasitter_tree_copy", "ts_tree_copy", "tree_copy"}, uint64(t.handle.Load()))
 	src := append([]byte(nil), t.source...)
 	t.mu.RUnlock()
 	if err != nil {
@@ -348,7 +348,7 @@ func (t *Tree) CopyE() (*Tree, error) {
 
 // Edit updates the tree's byte/point coordinates after a source edit.
 // Both InputEdit and *InputEdit are accepted.  The value form is the
-// allocation-free sitterwasm spelling; accepting a pointer keeps calls written
+// allocation-free wasitter spelling; accepting a pointer keeps calls written
 // for the native go-tree-sitter binding source-compatible.
 func (t *Tree) Edit(edit any) error {
 	if err := t.ensureOpen(); err != nil {
@@ -384,7 +384,7 @@ func (t *Tree) Edit(edit any) error {
 	if mem := r.mod.Memory(); mem == nil || !mem.Write(ptr, buf) {
 		return io.ErrShortWrite
 	}
-	fn, name, err := r.function("tsw_tree_edit", "sitterwasm_tree_edit", "ts_tree_edit", "tree_edit")
+	fn, name, err := r.function("tsw_tree_edit", "wasitter_tree_edit", "ts_tree_edit", "tree_edit")
 	if err != nil {
 		// Some experimental bridges expose the nine scalar fields directly.
 		if !isUnsupported(err) {
@@ -504,11 +504,11 @@ func (t *Tree) IncludedRangesE() ([]Range, error) {
 	r.mu.Lock()
 	fn, name, lookupErr := r.function(
 		"tsw_tree_included_ranges_into",
-		"sitterwasm_tree_included_ranges_into",
+		"wasitter_tree_included_ranges_into",
 		"ts_tree_included_ranges_into",
 		"tree_included_ranges_into",
 		"tsw_tree_included_ranges",
-		"sitterwasm_tree_included_ranges",
+		"wasitter_tree_included_ranges",
 		"tree_included_ranges",
 	)
 	if lookupErr == nil {
@@ -534,7 +534,7 @@ func (t *Tree) IncludedRangesE() ([]Range, error) {
 				break
 			}
 			if uint64(count) > uint64(^uint32(0))/24 {
-				lookupErr = fmt.Errorf("sitterwasm: included range count overflows wasm32 memory")
+				lookupErr = fmt.Errorf("wasitter: included range count overflows wasm32 memory")
 				break
 			}
 			ptr, allocErr := r.allocLocked(count * 24)
@@ -590,7 +590,7 @@ func (t *Tree) IncludedRangesE() ([]Range, error) {
 					payloadBytes := uint64(count) * 24
 					if uint64(ptr) > uint64(^uint32(0))-4 ||
 						payloadBytes > (uint64(1)<<32)-uint64(ptr)-4 {
-						lookupErr = fmt.Errorf("sitterwasm: included range count overflows wasm32 memory")
+						lookupErr = fmt.Errorf("wasitter: included range count overflows wasm32 memory")
 					} else if b, ok := mem.Read(ptr+4, uint32(payloadBytes)); !ok {
 						lookupErr = io.ErrUnexpectedEOF
 					} else {
@@ -642,10 +642,10 @@ func (t *Tree) ChangedRanges(newTree *Tree) ([]Range, error) {
 		return nil, ErrClosed
 	}
 	if newTree == nil {
-		return nil, fmt.Errorf("sitterwasm: nil new tree")
+		return nil, fmt.Errorf("wasitter: nil new tree")
 	}
 	if newTree.rt != t.rt {
-		return nil, fmt.Errorf("sitterwasm: trees belong to different runtimes")
+		return nil, fmt.Errorf("wasitter: trees belong to different runtimes")
 	}
 	// Hold both tree locks for the complete guest call. Tree.Close marks a tree
 	// closed before taking this write lock, so this prevents the backing TSTree
@@ -672,7 +672,7 @@ func (t *Tree) ChangedRanges(newTree *Tree) ([]Range, error) {
 	var nativeRanges []Range
 	nativeOK := false
 	r.mu.Lock()
-	fn, name, lookupErr := r.function("tsw_tree_changed_ranges_into", "tsw_tree_changed_ranges", "sitterwasm_tree_changed_ranges_into", "ts_tree_get_changed_ranges", "tsw_tree_get_changed_ranges", "tree_changed_ranges")
+	fn, name, lookupErr := r.function("tsw_tree_changed_ranges_into", "tsw_tree_changed_ranges", "wasitter_tree_changed_ranges_into", "ts_tree_get_changed_ranges", "tsw_tree_get_changed_ranges", "tree_changed_ranges")
 	if lookupErr == nil {
 		params := len(fn.Definition().ParamTypes())
 		if params == 4 {
@@ -686,7 +686,7 @@ func (t *Tree) ChangedRanges(newTree *Tree) ([]Range, error) {
 				}
 				if count > 0 {
 					if uint64(count) > uint64(^uint32(0))/24 {
-						lookupErr = fmt.Errorf("sitterwasm: changed-range count overflows wasm32 memory")
+						lookupErr = fmt.Errorf("wasitter: changed-range count overflows wasm32 memory")
 						count = 0
 					}
 				}
@@ -742,7 +742,7 @@ func (t *Tree) ChangedRanges(newTree *Tree) ([]Range, error) {
 									lookupErr = io.ErrUnexpectedEOF
 								}
 							} else {
-								lookupErr = fmt.Errorf("sitterwasm: changed-range block overflows wasm32 memory")
+								lookupErr = fmt.Errorf("wasitter: changed-range block overflows wasm32 memory")
 							}
 						} else {
 							lookupErr = io.ErrUnexpectedEOF
@@ -862,9 +862,9 @@ func (t *Tree) Close() error {
 	// Free node wrappers before the backing tree. A single runtime call lock
 	// keeps this safe when several trees are closed concurrently.
 	for _, node := range nodes {
-		_, _, _ = t.rt.call(context.Background(), []string{"tsw_node_delete", "sitterwasm_node_delete", "node_delete"}, uint64(node))
+		_, _, _ = t.rt.call(context.Background(), []string{"tsw_node_delete", "wasitter_node_delete", "node_delete"}, uint64(node))
 	}
-	_, _, err := t.rt.call(context.Background(), []string{"tsw_tree_delete", "sitterwasm_tree_delete", "ts_tree_delete", "tree_delete"}, uint64(handle))
+	_, _, err := t.rt.call(context.Background(), []string{"tsw_tree_delete", "wasitter_tree_delete", "ts_tree_delete", "tree_delete"}, uint64(handle))
 	if errors.Is(err, ErrClosed) {
 		return nil
 	}

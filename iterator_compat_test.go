@@ -1,22 +1,22 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"io"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // Iterators should remain usable with legacy bridges that expose child
 // navigation but do not export the optional tsw_node_is_null predicate.
 func TestIteratorWorksWithoutNodeIsNullExport(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_node_is_null", "old_node_is_null")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_node_is_null", "old_node_is_null")
 	// Hide the native cursor constructor as well so the fixture exercises the
 	// value-style traversal path used by old bridges.
 	wasm = hideWASMExport(t, wasm, "tsw_cursor_new", "old_cursor_new")
 	wasm = hideWASMExport(t, wasm, "tsw_tree_cursor_new", "old_tree_cursor_new")
 	tree := parseWithWASM(t, wasm)
-	it := sitterwasm.NewIterator(tree.RootNode(), sitterwasm.DFSMode)
+	it := wasitter.NewIterator(tree.RootNode(), wasitter.DFSMode)
 	if it == nil {
 		t.Fatal("NewIterator returned nil")
 	}

@@ -33,7 +33,7 @@ ENV PATH="/opt/zig:${PATH}" \
     HOME=/tmp \
     ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache
 
-# The repository and a small, statically linked `sitterwasm-build` helper are
+# The repository and a small, statically linked `wasitter-build` helper are
 # mounted by the Go command at `docker run` time.  There is intentionally no
 # shell entrypoint in this image: the helper receives structured arguments and
 # invokes Zig directly, while the image itself contains only the pinned

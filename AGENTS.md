@@ -7,13 +7,13 @@
   grammar, `mise run test:grammar <language>` to validate an existing artifact,
   and `mise run check:grammar <language>` to do both.
 - The parameterized tasks delegate to the CGO-free
-  `cmd/sitterwasm-build` command and require an object in
+  `cmd/wasitter-build` command and require an object in
   `scripts/grammar-registry.json`. Keep repository/tag/archive SHA,
   parser/scanner paths, and C language entry points complete and reviewed;
   represent multiple scanners as a JSON array and add one object per grammar
   in multi-grammar repos.
 - Official builds and source downloads run inside the pinned Docker builder.
-  Use the CGO-free `cmd/sitterwasm-build` command; custom grammars must first
+  Use the CGO-free `cmd/wasitter-build` command; custom grammars must first
   be added as reviewed entries in `scripts/grammar-registry.json`.
 - Commit the generated `.wasm` and adjacent `.wasm.sha256` together. The
   artifact test discovers checked-in files automatically; native parity also

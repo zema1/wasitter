@@ -1,4 +1,4 @@
-// Command sitterwasm-build drives reproducible Tree-sitter grammar builds.
+// Command wasitter-build drives reproducible Tree-sitter grammar builds.
 //
 // The host-side commands build the pinned Docker image and mount this same
 // binary into it. The in-container command then performs registry lookup,
@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zema1/sitterwasm/internal/grammarbuild"
+	"github.com/zema1/wasitter/internal/grammarbuild"
 )
 
-const defaultImage = "sitterwasm-wasm-builder:zig-0.15.2"
+const defaultImage = "wasitter-wasm-builder:zig-0.15.2"
 
 type usageError struct{ message string }
 
@@ -61,7 +61,7 @@ func main() {
 		if errors.Is(err, context.Canceled) {
 			code = 130
 		}
-		fmt.Fprintf(os.Stderr, "sitterwasm-build: %v\n", err)
+		fmt.Fprintf(os.Stderr, "wasitter-build: %v\n", err)
 		os.Exit(code)
 	}
 }
@@ -95,15 +95,15 @@ func run(ctx context.Context, args []string) error {
 
 func usage() string {
 	return `usage:
-  sitterwasm-build build-grammar [options] <language>
-  sitterwasm-build test-grammar [options] <language>
-  sitterwasm-build check-grammar [options] <language>
-  sitterwasm-build verify-wasm [options]
+  wasitter-build build-grammar [options] <language>
+  wasitter-build test-grammar [options] <language>
+  wasitter-build check-grammar [options] <language>
+  wasitter-build verify-wasm [options]
 
 Host commands build through Docker. Internal commands are used by the mounted
 helper inside that image:
-  sitterwasm-build in-container-build-grammar [options] <language>
-  sitterwasm-build in-container-build-wasm [options]
+  wasitter-build in-container-build-grammar [options] <language>
+  wasitter-build in-container-build-wasm [options]
 
 Options common to grammar commands:
   -root <path>       repository root (default: discover from current directory)
@@ -134,7 +134,7 @@ func runVerifyWASM(args []string) error {
 	}
 	artifact := *outputArg
 	if artifact == "" {
-		artifact = filepath.Join(root, "internal", "wasm", "assets", "sitterwasm-json.wasm")
+		artifact = filepath.Join(root, "internal", "wasm", "assets", "wasitter-json.wasm")
 	} else if !filepath.IsAbs(artifact) {
 		artifact = filepath.Join(root, artifact)
 	}
@@ -330,7 +330,7 @@ func verifyGrammar(options grammarFlags, grammar grammarbuild.Grammar) error {
 		outputDir = filepath.Join(options.root, outputDir)
 	}
 	outputDir = filepath.Clean(outputDir)
-	artifact := filepath.Join(outputDir, "sitterwasm-"+grammar.Name+".wasm")
+	artifact := filepath.Join(outputDir, "wasitter-"+grammar.Name+".wasm")
 	digest, err := grammarbuild.VerifyArtifact(artifact, artifact+".sha256")
 	if err != nil {
 		return err
@@ -401,7 +401,7 @@ func runDockerGrammar(ctx context.Context, options grammarFlags, grammar grammar
 	if err != nil {
 		return err
 	}
-	mountArgs, err = appendBindMount(mountArgs, helper, "/usr/local/bin/sitterwasm-build", true)
+	mountArgs, err = appendBindMount(mountArgs, helper, "/usr/local/bin/wasitter-build", true)
 	if err != nil {
 		return err
 	}
@@ -410,7 +410,7 @@ func runDockerGrammar(ctx context.Context, options grammarFlags, grammar grammar
 		args = append(args, "--user", uid+":"+gid)
 	}
 	args = append(args,
-		"--entrypoint", "/usr/local/bin/sitterwasm-build",
+		"--entrypoint", "/usr/local/bin/wasitter-build",
 		options.image,
 		"in-container-build-grammar",
 		"-root", "/workspace",
@@ -520,7 +520,7 @@ func runInContainerBuildWASM(ctx context.Context, args []string) error {
 	}); err != nil {
 		return fmt.Errorf("build bundled WASM: %w", err)
 	}
-	artifact := filepath.Join(rootAbs, "internal", "wasm", "assets", "sitterwasm-json.wasm")
+	artifact := filepath.Join(rootAbs, "internal", "wasm", "assets", "wasitter-json.wasm")
 	if digest, checksum, err := grammarbuild.WriteArtifactChecksum(artifact); err != nil {
 		return fmt.Errorf("publish bundled WASM checksum: %w", err)
 	} else {
@@ -561,7 +561,7 @@ func runDockerBundledWASM(ctx context.Context, root, image, platform string) err
 	if err != nil {
 		return err
 	}
-	mountArgs, err = appendBindMount(mountArgs, helper, "/usr/local/bin/sitterwasm-build", true)
+	mountArgs, err = appendBindMount(mountArgs, helper, "/usr/local/bin/wasitter-build", true)
 	if err != nil {
 		return err
 	}
@@ -570,7 +570,7 @@ func runDockerBundledWASM(ctx context.Context, root, image, platform string) err
 		runArgs = append(runArgs, "--user", uid+":"+gid)
 	}
 	runArgs = append(runArgs,
-		"--entrypoint", "/usr/local/bin/sitterwasm-build", image,
+		"--entrypoint", "/usr/local/bin/wasitter-build", image,
 		"in-container-build-wasm", "-root", "/workspace",
 	)
 	if err := runCommand(ctx, "docker", runArgs, os.Stdout, os.Stderr); err != nil {
@@ -630,7 +630,7 @@ func helperBinary(ctx context.Context, root, platform string) (string, func(), e
 	if err := os.MkdirAll(tmpDir, 0o700); err != nil {
 		return "", func() {}, fmt.Errorf("create helper directory: %w", err)
 	}
-	tmp, err := os.CreateTemp(tmpDir, "sitterwasm-build-helper-*")
+	tmp, err := os.CreateTemp(tmpDir, "wasitter-build-helper-*")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("create helper path: %w", err)
 	}
@@ -640,7 +640,7 @@ func helperBinary(ctx context.Context, root, platform string) (string, func(), e
 		return "", func() {}, err
 	}
 	_ = os.Remove(path)
-	cmd := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", path, "./cmd/sitterwasm-build")
+	cmd := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", path, "./cmd/wasitter-build")
 	cmd.Dir = root
 	cmd.Env = replaceEnvironment(os.Environ(), map[string]string{
 		"CGO_ENABLED": "0",

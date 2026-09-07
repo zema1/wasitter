@@ -1,16 +1,16 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // The native go-tree-sitter API passes InputEdit by pointer, while
-// sitterwasm's value API accepts the same edit without an allocation. Verify
+// wasitter's value API accepts the same edit without an allocation. Verify
 // that both forms reach the same wire representation.
 func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
-	parser, runtime, err := sitterwasm.NewJSONParser(nil)
+	parser, runtime, err := wasitter.NewJSONParser(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,13 +23,13 @@ func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
 	}
 	defer tree.Close()
 
-	edit := sitterwasm.InputEdit{
+	edit := wasitter.InputEdit{
 		StartByte:   1,
 		OldEndByte:  2,
 		NewEndByte:  3,
-		StartPoint:  sitterwasm.Point{Row: 0, Column: 1},
-		OldEndPoint: sitterwasm.Point{Row: 0, Column: 2},
-		NewEndPoint: sitterwasm.Point{Row: 0, Column: 3},
+		StartPoint:  wasitter.Point{Row: 0, Column: 1},
+		OldEndPoint: wasitter.Point{Row: 0, Column: 2},
+		NewEndPoint: wasitter.Point{Row: 0, Column: 3},
 	}
 	if err := tree.Edit(&edit); err != nil {
 		t.Fatalf("pointer edit: %v", err)
@@ -48,12 +48,12 @@ func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
 	if err := child.Edit(&edit); err != nil {
 		t.Fatalf("node pointer edit: %v", err)
 	}
-	if cursor := sitterwasm.NewTreeCursor(root); cursor == nil {
+	if cursor := wasitter.NewTreeCursor(root); cursor == nil {
 		t.Fatal("NewTreeCursor did not accept a Node value")
 	} else {
 		_ = cursor.Close()
 	}
-	if iterator := sitterwasm.NewIterator(root, sitterwasm.DFSMode); iterator == nil {
+	if iterator := wasitter.NewIterator(root, wasitter.DFSMode); iterator == nil {
 		t.Fatal("NewIterator did not accept a Node value")
 	} else {
 		_ = iterator.Close()
@@ -61,7 +61,7 @@ func TestTreeEditAcceptsPointerAndValue(t *testing.T) {
 }
 
 func TestRootNodeWithOffsetAcceptsNativeIntegerWidths(t *testing.T) {
-	parser, runtime, err := sitterwasm.NewJSONParser(nil)
+	parser, runtime, err := wasitter.NewJSONParser(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,11 +75,11 @@ func TestRootNodeWithOffsetAcceptsNativeIntegerWidths(t *testing.T) {
 
 	// The upstream method uses int; the WASM-native form uses uint32. Both
 	// should compile and produce a usable shifted root.
-	if node, err := tree.RootNodeWithOffset(0, sitterwasm.Point{}); err != nil || node.IsNull() {
+	if node, err := tree.RootNodeWithOffset(0, wasitter.Point{}); err != nil || node.IsNull() {
 		t.Fatalf("uint32 literal offset: node=%v err=%v", node, err)
 	}
 	var nativeOffset int = 0
-	if node, err := tree.RootNodeWithOffset(nativeOffset, sitterwasm.Point{}); err != nil || node.IsNull() {
+	if node, err := tree.RootNodeWithOffset(nativeOffset, wasitter.Point{}); err != nil || node.IsNull() {
 		t.Fatalf("int offset: node=%v err=%v", node, err)
 	}
 }

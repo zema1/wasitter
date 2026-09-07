@@ -11,7 +11,7 @@
   },
   {
     "name": "nested",
-    "source": "{\"name\":\"sitterwasm\",\"items\":[true,null,42]}",
+    "source": "{\"name\":\"wasitter\",\"items\":[true,null,42]}",
     "sexp": "(document (object (pair key: (string (string_content)) value: (string (string_content))) (pair key: (string (string_content)) value: (array (true) (null) (number)))))"
   },
   {

@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -140,7 +140,7 @@ func NewRuntimeWithOptions(ctx context.Context, wasm []byte, opts RuntimeOptions
 // wazero runtime.
 func NewRuntimeFromModule(ctx context.Context, module api.Module) (*Runtime, error) {
 	if module == nil {
-		return nil, fmt.Errorf("sitterwasm: nil module")
+		return nil, fmt.Errorf("wasitter: nil module")
 	}
 	// A closed module cannot be made usable again.  More importantly, keeping
 	// a wrapper around one would make the first ExportedFunction/Memory call
@@ -191,7 +191,7 @@ func (r *Runtime) ABIVersion() uint32 {
 // binding. It is an alias of ABIVersion.
 func (r *Runtime) AbiVersion() uint32 { return r.ABIVersion() }
 
-// ABIVersionE returns the module's advertised sitterwasm wire ABI version.
+// ABIVersionE returns the module's advertised wasitter wire ABI version.
 // Modules built before the version export are still usable through the
 // compatibility paths, so an absent export is reported as ErrUnsupported
 // rather than treated as a malformed module.
@@ -203,7 +203,7 @@ func (r *Runtime) ABIVersionE() (uint32, error) {
 	defer r.mu.Unlock()
 	result, name, err := r.callLocked(r.Context(), []string{
 		"tsw_abi_version",
-		"sitterwasm_abi_version",
+		"wasitter_abi_version",
 		"abi_version",
 	})
 	if err != nil {
@@ -346,7 +346,7 @@ func (r *Runtime) allocLocked(size uint32) (uint32, error) {
 	// `__wbindgen_malloc` in a two-argument (size, alignment) form; invoking
 	// such a function with the C `malloc(size)` ABI can trap. Skip incompatible
 	// exports and continue to the next alias instead.
-	allocatorNames := []string{"tsw_alloc", "sitterwasm_alloc", "malloc", "__wbindgen_malloc"}
+	allocatorNames := []string{"tsw_alloc", "wasitter_alloc", "malloc", "__wbindgen_malloc"}
 	var unsupportedErr error
 	// Keep track of whether an allocator export was found at all.  The bump
 	// allocator is only safe for modules that deliberately omit an allocator;
@@ -402,7 +402,7 @@ func (r *Runtime) allocLocked(size uint32) (uint32, error) {
 			return 0, &ABIError{Function: allocatorName, Message: "allocator returned a non-wasm32 pointer"}
 		}
 		if ptr == 0 {
-			return 0, fmt.Errorf("sitterwasm: guest allocation of %d bytes failed", size)
+			return 0, fmt.Errorf("wasitter: guest allocation of %d bytes failed", size)
 		}
 		// Allocators cross the ABI as wasm32 offsets.  Reject an offset that
 		// cannot hold the requested block before any caller attempts a memory
@@ -456,12 +456,12 @@ func (r *Runtime) allocLocked(size uint32) (uint32, error) {
 	// Reject that final one-byte boundary instead of handing out overlapping
 	// pointers on the next call.
 	if end >= uint64(1)<<32 {
-		return 0, fmt.Errorf("sitterwasm: guest allocation exceeds wasm32 address space")
+		return 0, fmt.Errorf("wasitter: guest allocation exceeds wasm32 address space")
 	}
 	if end > uint64(mem.Size()) {
 		pages := uint32((end - uint64(mem.Size()) + 65535) / 65536)
 		if _, ok := mem.Grow(pages); !ok {
-			return 0, fmt.Errorf("sitterwasm: guest memory exhausted")
+			return 0, fmt.Errorf("wasitter: guest memory exhausted")
 		}
 	}
 	r.nextAlloc.Store(uint32(end))
@@ -483,7 +483,7 @@ func (r *Runtime) freeLocked(ptr uint32) {
 		size = r.allocSizes[ptr]
 		delete(r.allocSizes, ptr)
 	}
-	for _, freeName := range []string{"tsw_free", "sitterwasm_free", "free", "__wbindgen_free"} {
+	for _, freeName := range []string{"tsw_free", "wasitter_free", "free", "__wbindgen_free"} {
 		fn := r.mod.ExportedFunction(freeName)
 		if fn == nil {
 			continue
@@ -559,7 +559,7 @@ func (r *Runtime) freeRangesLocked(ptr, count uint32) {
 			return
 		}
 	}
-	for _, name := range []string{"tsw_ranges_free", "sitterwasm_ranges_free", "ranges_free", "__wbindgen_free", "tsw_free", "sitterwasm_free", "free"} {
+	for _, name := range []string{"tsw_ranges_free", "wasitter_ranges_free", "ranges_free", "__wbindgen_free", "tsw_free", "wasitter_free", "free"} {
 		fn := r.mod.ExportedFunction(name)
 		if fn == nil {
 			continue
@@ -585,7 +585,7 @@ func (r *Runtime) freeRangesLocked(ptr, count uint32) {
 			// wasm-bindgen, the second argument is the allocation size.
 			if name == "__wbindgen_free" {
 				args = []uint64{uint64(ptr), blockSize}
-			} else if name == "tsw_ranges_free" || name == "sitterwasm_ranges_free" || name == "ranges_free" {
+			} else if name == "tsw_ranges_free" || name == "wasitter_ranges_free" || name == "ranges_free" {
 				args = []uint64{uint64(ptr), uint64(count)}
 			} else {
 				continue
@@ -619,7 +619,7 @@ func deleteGuestTreeWhileLocked(r *Runtime, handle uint32) {
 	if r == nil || handle == 0 || r.mod == nil {
 		return
 	}
-	for _, name := range []string{"tsw_tree_delete", "sitterwasm_tree_delete", "ts_tree_delete", "tree_delete"} {
+	for _, name := range []string{"tsw_tree_delete", "wasitter_tree_delete", "ts_tree_delete", "tree_delete"} {
 		fn := r.funcs[name]
 		if fn == nil {
 			fn = r.mod.ExportedFunction(name)
@@ -650,7 +650,7 @@ func (r *Runtime) callWithInput(ctx context.Context, names []string, prefix []ui
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if uint64(len(data)) > uint64(^uint32(0)) {
-		return nil, names[0], fmt.Errorf("sitterwasm: input exceeds uint32 byte offset")
+		return nil, names[0], fmt.Errorf("wasitter: input exceeds uint32 byte offset")
 	}
 	ptr, err := r.allocLocked(uint32(len(data)))
 	if err != nil {

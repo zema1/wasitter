@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import "testing"
 

@@ -1,10 +1,10 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"testing"
 	"time"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // A progress callback cancels host-side collection after a result has been
@@ -13,12 +13,12 @@ import (
 // that retains pointers into the tree.
 func TestQueryCursorProgressCancellationReleasesNativeHandleBeforeTree(t *testing.T) {
 	p, _, tree := parseJSON(t, `[1, 2, 3, 4]`)
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
 	defer q.Close()
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 
 	callbacks := 0
@@ -26,7 +26,7 @@ func TestQueryCursorProgressCancellationReleasesNativeHandleBeforeTree(t *testin
 		q,
 		tree.RootNode(),
 		[]byte(`[1, 2, 3, 4]`),
-		sitterwasm.QueryCursorOptions{ProgressCallback: func(sitterwasm.QueryCursorState) bool {
+		wasitter.QueryCursorOptions{ProgressCallback: func(wasitter.QueryCursorState) bool {
 			callbacks++
 			return true
 		}},
@@ -59,11 +59,11 @@ func TestQueryCursorProgressCancellationReleasesNativeHandleBeforeTree(t *testin
 // free the guest TSTree before the next cursor call.
 func TestQueryCursorRetainsTreeUntilStreamExhausted(t *testing.T) {
 	p, rt, tree := parseJSON(t, `[1, 2, 3]`)
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	defer q.Close()
 

@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 // TreeCursor is a mutable depth-first cursor over a syntax tree. When the
-// module contains the sitterwasm cursor ABI, navigation is delegated to the
+// module contains the wasitter cursor ABI, navigation is delegated to the
 // upstream TSTreeCursor implementation. A small Go implementation is retained
 // as a compatibility fallback for older/custom modules.
 type TreeCursor struct {
@@ -234,7 +234,7 @@ func newTreeCursor(node Node) *TreeCursor {
 		var err error
 		if tree.ensureOpen() == nil {
 			result, _, err = tree.rt.call(context.Background(), []string{
-				"tsw_cursor_new", "tsw_tree_cursor_new", "sitterwasm_cursor_new", "sitterwasm_tree_cursor_new",
+				"tsw_cursor_new", "tsw_tree_cursor_new", "wasitter_cursor_new", "wasitter_tree_cursor_new",
 			}, uint64(node.handle))
 		}
 		tree.mu.RUnlock()
@@ -265,7 +265,7 @@ func (c *TreeCursor) CurrentNode() Node {
 		var err error
 		if tree.ensureOpen() == nil {
 			result, _, err = tree.rt.call(context.Background(), []string{
-				"tsw_cursor_current_node", "tsw_tree_cursor_current_node", "sitterwasm_cursor_current_node", "sitterwasm_tree_cursor_current_node",
+				"tsw_cursor_current_node", "tsw_tree_cursor_current_node", "wasitter_cursor_current_node", "wasitter_tree_cursor_current_node",
 			}, uint64(c.handle))
 		}
 		tree.mu.RUnlock()
@@ -321,8 +321,8 @@ func (c *TreeCursor) CurrentFieldName() string {
 			result, _, err := r.callLocked(context.Background(), []string{
 				"tsw_cursor_current_field_name_ptr", "tsw_cursor_current_field_name",
 				"tsw_tree_cursor_current_field_name_ptr", "tsw_tree_cursor_current_field_name",
-				"sitterwasm_cursor_current_field_name_ptr", "sitterwasm_cursor_current_field_name",
-				"sitterwasm_tree_cursor_current_field_name_ptr", "sitterwasm_tree_cursor_current_field_name",
+				"wasitter_cursor_current_field_name_ptr", "wasitter_cursor_current_field_name",
+				"wasitter_tree_cursor_current_field_name_ptr", "wasitter_tree_cursor_current_field_name",
 			}, uint64(c.handle))
 			if err == nil && len(result) != 0 {
 				ptr, ptrOK := checkedU32(result[0])
@@ -393,7 +393,7 @@ func (c *TreeCursor) CurrentFieldID() uint16 {
 	if c.handle != 0 && c.tree != nil && c.tree.rt != nil {
 		result, err := c.nativeCallLocked([]string{
 			"tsw_cursor_current_field_id", "tsw_tree_cursor_current_field_id",
-			"sitterwasm_cursor_current_field_id", "sitterwasm_tree_cursor_current_field_id",
+			"wasitter_cursor_current_field_id", "wasitter_tree_cursor_current_field_id",
 		}, uint64(c.handle))
 		if err == nil && len(result) != 0 {
 			// TSFieldId is a 16-bit value.  Do not silently truncate a
@@ -519,12 +519,12 @@ func (c *TreeCursor) nativeMoveArgsLocked(names []string, args ...uint64) (used 
 	// refresh the value-style Node shadow, but do not turn an optional/missing
 	// accessor into a false movement failure.
 	current, _, currentErr := tree.rt.call(context.Background(), []string{
-		"tsw_cursor_current_node", "tsw_tree_cursor_current_node", "sitterwasm_cursor_current_node", "sitterwasm_tree_cursor_current_node",
+		"tsw_cursor_current_node", "tsw_tree_cursor_current_node", "wasitter_cursor_current_node", "wasitter_tree_cursor_current_node",
 	}, uint64(c.handle))
 	indexKnown := false
 	if indexResult, _, indexErr := tree.rt.call(context.Background(), []string{
 		"tsw_cursor_current_descendant_index", "tsw_tree_cursor_current_descendant_index",
-		"sitterwasm_cursor_current_descendant_index", "sitterwasm_tree_cursor_current_descendant_index",
+		"wasitter_cursor_current_descendant_index", "wasitter_tree_cursor_current_descendant_index",
 	}, uint64(c.handle)); indexErr == nil && len(indexResult) != 0 {
 		if value, ok := checkedU32(indexResult[0]); ok {
 			c.descendantIndex = value
@@ -626,7 +626,7 @@ func (c *TreeCursor) CurrentDepth() int {
 	if c.handle != 0 && c.tree != nil && c.tree.rt != nil {
 		result, err := c.nativeCallLocked([]string{
 			"tsw_cursor_current_depth", "tsw_tree_cursor_current_depth",
-			"sitterwasm_cursor_current_depth", "sitterwasm_tree_cursor_current_depth",
+			"wasitter_cursor_current_depth", "wasitter_tree_cursor_current_depth",
 		}, uint64(c.handle))
 		if err == nil && len(result) != 0 {
 			if value, ok := checkedU32(result[0]); ok {
@@ -670,7 +670,7 @@ func (c *TreeCursor) DescendantIndex() uint32 {
 	if c.handle != 0 && c.tree != nil && c.tree.rt != nil {
 		result, err := c.nativeCallLocked([]string{
 			"tsw_cursor_current_descendant_index", "tsw_tree_cursor_current_descendant_index",
-			"sitterwasm_cursor_current_descendant_index", "sitterwasm_tree_cursor_current_descendant_index",
+			"wasitter_cursor_current_descendant_index", "wasitter_tree_cursor_current_descendant_index",
 		}, uint64(c.handle))
 		if err == nil && len(result) != 0 {
 			if value, ok := checkedU32(result[0]); ok {
@@ -705,7 +705,7 @@ func (c *TreeCursor) GoToFirstChild() bool {
 	}
 	oldNode := c.node
 	oldIndex := c.descendantIndex
-	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_first_child", "tsw_tree_cursor_goto_first_child", "sitterwasm_cursor_goto_first_child", "sitterwasm_tree_cursor_goto_first_child"); used {
+	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_first_child", "tsw_tree_cursor_goto_first_child", "wasitter_cursor_goto_first_child", "wasitter_tree_cursor_goto_first_child"); used {
 		if moved && !shadowRebuilt && oldNode.handle != 0 {
 			// Retain the position occupied before the native move so a later
 			// ABI fallback still reports depth/parent information correctly.
@@ -743,7 +743,7 @@ func (c *TreeCursor) GoToLastChild() bool {
 	}
 	oldNode := c.node
 	oldIndex := c.descendantIndex
-	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_last_child", "tsw_tree_cursor_goto_last_child", "sitterwasm_cursor_goto_last_child", "sitterwasm_tree_cursor_goto_last_child"); used {
+	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_last_child", "tsw_tree_cursor_goto_last_child", "wasitter_cursor_goto_last_child", "wasitter_tree_cursor_goto_last_child"); used {
 		if moved && !shadowRebuilt && oldNode.handle != 0 {
 			c.stack = append(c.stack, oldNode)
 			c.stackIndices = append(c.stackIndices, oldIndex)
@@ -788,7 +788,7 @@ func (c *TreeCursor) GoToFirstChildForByte(offset uint32) bool {
 		oldShadow = c.snapshotShadowLocked()
 	}
 	if used, result, shadowRebuilt := c.nativeMoveArgsLocked([]string{
-		"tsw_cursor_goto_first_child_for_byte", "tsw_tree_cursor_goto_first_child_for_byte", "sitterwasm_cursor_goto_first_child_for_byte", "sitterwasm_tree_cursor_goto_first_child_for_byte",
+		"tsw_cursor_goto_first_child_for_byte", "tsw_tree_cursor_goto_first_child_for_byte", "wasitter_cursor_goto_first_child_for_byte", "wasitter_tree_cursor_goto_first_child_for_byte",
 	}, uint64(offset)); used {
 		if len(result) == 0 {
 			// nativeMoveArgsLocked refreshes the node shadow before returning.
@@ -854,7 +854,7 @@ func (c *TreeCursor) GotoFirstChildForByte(offset uint32) *uint {
 		oldShadow = c.snapshotShadowLocked()
 	}
 	if used, result, shadowRebuilt := c.nativeMoveArgsLocked([]string{
-		"tsw_cursor_goto_first_child_for_byte", "tsw_tree_cursor_goto_first_child_for_byte", "sitterwasm_cursor_goto_first_child_for_byte", "sitterwasm_tree_cursor_goto_first_child_for_byte",
+		"tsw_cursor_goto_first_child_for_byte", "tsw_tree_cursor_goto_first_child_for_byte", "wasitter_cursor_goto_first_child_for_byte", "wasitter_tree_cursor_goto_first_child_for_byte",
 	}, uint64(offset)); used {
 		if len(result) != 0 {
 			idx := i64(result[0])
@@ -929,7 +929,7 @@ func (c *TreeCursor) GoToFirstChildForPoint(point Point) bool {
 		oldShadow = c.snapshotShadowLocked()
 	}
 	if used, result, shadowRebuilt := c.nativeMoveArgsLocked([]string{
-		"tsw_cursor_goto_first_child_for_point", "tsw_tree_cursor_goto_first_child_for_point", "sitterwasm_cursor_goto_first_child_for_point", "sitterwasm_tree_cursor_goto_first_child_for_point",
+		"tsw_cursor_goto_first_child_for_point", "tsw_tree_cursor_goto_first_child_for_point", "wasitter_cursor_goto_first_child_for_point", "wasitter_tree_cursor_goto_first_child_for_point",
 	}, packPoint(point)); used {
 		if len(result) == 0 {
 			c.restoreShadowLocked(oldShadow)
@@ -990,7 +990,7 @@ func (c *TreeCursor) GotoFirstChildForPoint(point Point) *uint {
 		oldShadow = c.snapshotShadowLocked()
 	}
 	if used, result, shadowRebuilt := c.nativeMoveArgsLocked([]string{
-		"tsw_cursor_goto_first_child_for_point", "tsw_tree_cursor_goto_first_child_for_point", "sitterwasm_cursor_goto_first_child_for_point", "sitterwasm_tree_cursor_goto_first_child_for_point",
+		"tsw_cursor_goto_first_child_for_point", "tsw_tree_cursor_goto_first_child_for_point", "wasitter_cursor_goto_first_child_for_point", "wasitter_tree_cursor_goto_first_child_for_point",
 	}, packPoint(point)); used {
 		if len(result) != 0 {
 			idx := i64(result[0])
@@ -1053,7 +1053,7 @@ func (c *TreeCursor) GoToNextSibling() bool {
 	}
 	oldNode := c.node
 	oldIndex := c.descendantIndex
-	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_next_sibling", "tsw_tree_cursor_goto_next_sibling", "sitterwasm_cursor_goto_next_sibling", "sitterwasm_tree_cursor_goto_next_sibling"); used {
+	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_next_sibling", "tsw_tree_cursor_goto_next_sibling", "wasitter_cursor_goto_next_sibling", "wasitter_tree_cursor_goto_next_sibling"); used {
 		// nativeMoveLocked refreshes descendantIndex from the guest whenever
 		// the accessor is available.  Keep that structural value intact: the
 		// upstream cursor deliberately exposes it (and it can differ from a
@@ -1103,7 +1103,7 @@ func (c *TreeCursor) GoToPrevSibling() bool {
 	if c.handle == 0 {
 		c.normalizeFallbackShadowLocked()
 	}
-	if used, moved, _ := c.nativeMoveLocked("tsw_cursor_goto_previous_sibling", "tsw_cursor_goto_prev_sibling", "tsw_tree_cursor_goto_previous_sibling", "tsw_tree_cursor_goto_prev_sibling", "sitterwasm_cursor_goto_previous_sibling", "sitterwasm_cursor_goto_prev_sibling", "sitterwasm_tree_cursor_goto_previous_sibling", "sitterwasm_tree_cursor_goto_prev_sibling"); used {
+	if used, moved, _ := c.nativeMoveLocked("tsw_cursor_goto_previous_sibling", "tsw_cursor_goto_prev_sibling", "tsw_tree_cursor_goto_previous_sibling", "tsw_tree_cursor_goto_prev_sibling", "wasitter_cursor_goto_previous_sibling", "wasitter_cursor_goto_prev_sibling", "wasitter_tree_cursor_goto_previous_sibling", "wasitter_tree_cursor_goto_prev_sibling"); used {
 		// Keep the native cursor attached after a successful movement.  The
 		// upstream C API intentionally exposes its structural descendant index,
 		// which can differ from a visible pre-order index after reverse traversal
@@ -1197,7 +1197,7 @@ func (c *TreeCursor) GoToParent() bool {
 	if c.handle == 0 {
 		c.normalizeFallbackShadowLocked()
 	}
-	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_parent", "tsw_tree_cursor_goto_parent", "sitterwasm_cursor_goto_parent", "sitterwasm_tree_cursor_goto_parent"); used {
+	if used, moved, shadowRebuilt := c.nativeMoveLocked("tsw_cursor_goto_parent", "tsw_tree_cursor_goto_parent", "wasitter_cursor_goto_parent", "wasitter_tree_cursor_goto_parent"); used {
 		if moved && !shadowRebuilt && len(c.stack) > 0 {
 			last := len(c.stack) - 1
 			c.stack = c.stack[:last]
@@ -1436,7 +1436,7 @@ func deleteCursorHandle(rt *Runtime, handle uint32) error {
 		return nil
 	}
 	_, _, err := rt.call(context.Background(), []string{
-		"tsw_cursor_delete", "tsw_tree_cursor_delete", "sitterwasm_cursor_delete", "sitterwasm_tree_cursor_delete",
+		"tsw_cursor_delete", "tsw_tree_cursor_delete", "wasitter_cursor_delete", "wasitter_tree_cursor_delete",
 	}, uint64(handle))
 	if err != nil && (isUnsupported(err) || err == ErrClosed) {
 		return nil
@@ -1476,7 +1476,7 @@ func (c *TreeCursor) Reset(value any) {
 	if oldHandle != 0 && oldRT != nil && oldRT == newTree.rt &&
 		(oldTree == nil || oldTree.ensureOpen() == nil) && newTree.ensureOpen() == nil {
 		_, _, err := oldRT.call(context.Background(), []string{
-			"tsw_cursor_reset", "tsw_tree_cursor_reset", "sitterwasm_cursor_reset", "sitterwasm_tree_cursor_reset",
+			"tsw_cursor_reset", "tsw_tree_cursor_reset", "wasitter_cursor_reset", "wasitter_tree_cursor_reset",
 		}, uint64(oldHandle), uint64(node.handle))
 		native = err == nil
 	}
@@ -1568,7 +1568,7 @@ func (c *TreeCursor) ResetTo(other *TreeCursor) {
 	if oldHandle != 0 && other.handle != 0 && oldRT != nil && oldRT == srcTree.rt &&
 		(oldTree == nil || oldTree.ensureOpen() == nil) && srcTree.ensureOpen() == nil {
 		_, _, err := oldRT.call(context.Background(), []string{
-			"tsw_cursor_reset_to", "tsw_tree_cursor_reset_to", "sitterwasm_cursor_reset_to", "sitterwasm_tree_cursor_reset_to",
+			"tsw_cursor_reset_to", "tsw_tree_cursor_reset_to", "wasitter_cursor_reset_to", "wasitter_tree_cursor_reset_to",
 		}, uint64(oldHandle), uint64(other.handle))
 		native = err == nil
 	}
@@ -1635,7 +1635,7 @@ func (c *TreeCursor) Copy() *TreeCursor {
 	}
 	if c.handle != 0 && c.tree != nil && c.tree.rt != nil {
 		result, err := c.nativeCallLocked([]string{
-			"tsw_cursor_copy", "tsw_tree_cursor_copy", "sitterwasm_cursor_copy", "sitterwasm_tree_cursor_copy",
+			"tsw_cursor_copy", "tsw_tree_cursor_copy", "wasitter_cursor_copy", "wasitter_tree_cursor_copy",
 		}, uint64(c.handle))
 		if err == nil && len(result) != 0 {
 			if handle, ok := checkedU32(result[0]); ok {
@@ -1718,12 +1718,12 @@ func (c *TreeCursor) nativeMoveLocked(names ...string) (used, moved, shadowRebui
 	moved = result[0] != 0
 	var current []uint64
 	current, _, _ = tree.rt.call(context.Background(), []string{
-		"tsw_cursor_current_node", "tsw_tree_cursor_current_node", "sitterwasm_cursor_current_node", "sitterwasm_tree_cursor_current_node",
+		"tsw_cursor_current_node", "tsw_tree_cursor_current_node", "wasitter_cursor_current_node", "wasitter_tree_cursor_current_node",
 	}, uint64(c.handle))
 	indexKnown := false
 	if indexResult, _, indexErr := tree.rt.call(context.Background(), []string{
 		"tsw_cursor_current_descendant_index", "tsw_tree_cursor_current_descendant_index",
-		"sitterwasm_cursor_current_descendant_index", "sitterwasm_tree_cursor_current_descendant_index",
+		"wasitter_cursor_current_descendant_index", "wasitter_tree_cursor_current_descendant_index",
 	}, uint64(c.handle)); indexErr == nil && len(indexResult) != 0 {
 		if value, ok := checkedU32(indexResult[0]); ok {
 			c.descendantIndex = value
@@ -1803,7 +1803,7 @@ func (c *TreeCursor) nativeGotoDescendantLocked(index uint32) bool {
 	}
 	_, _, callErr := tree.rt.call(context.Background(), []string{
 		"tsw_cursor_goto_descendant", "tsw_tree_cursor_goto_descendant",
-		"sitterwasm_cursor_goto_descendant", "sitterwasm_tree_cursor_goto_descendant",
+		"wasitter_cursor_goto_descendant", "wasitter_tree_cursor_goto_descendant",
 	}, uint64(c.handle), uint64(index))
 	if callErr != nil {
 		tree.mu.RUnlock()
@@ -1813,11 +1813,11 @@ func (c *TreeCursor) nativeGotoDescendantLocked(index uint32) bool {
 	}
 	current, _, currentErr := tree.rt.call(context.Background(), []string{
 		"tsw_cursor_current_node", "tsw_tree_cursor_current_node",
-		"sitterwasm_cursor_current_node", "sitterwasm_tree_cursor_current_node",
+		"wasitter_cursor_current_node", "wasitter_tree_cursor_current_node",
 	}, uint64(c.handle))
 	indexResult, _, indexErr := tree.rt.call(context.Background(), []string{
 		"tsw_cursor_current_descendant_index", "tsw_tree_cursor_current_descendant_index",
-		"sitterwasm_cursor_current_descendant_index", "sitterwasm_tree_cursor_current_descendant_index",
+		"wasitter_cursor_current_descendant_index", "wasitter_tree_cursor_current_descendant_index",
 	}, uint64(c.handle))
 	indexKnown := false
 	if indexErr == nil && len(indexResult) != 0 {

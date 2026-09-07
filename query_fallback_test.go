@@ -1,4 +1,4 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"bytes"
@@ -6,15 +6,15 @@ import (
 	"errors"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 // Standard Tree-sitter query syntax places predicates in sibling
 // parenthesized expressions (`(number) @n (#eq? @n "1")`). Legacy bridge
 // execution must retain that association just like the native query engine.
 func TestFallbackTopLevelPredicateSibling(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
-	rt, err := sitterwasm.NewRuntime(context.Background(), wasm)
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	rt, err := wasitter.NewRuntime(context.Background(), wasm)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func TestFallbackTopLevelPredicateSibling(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lang.Close()
-	p, err := sitterwasm.NewParserWithRuntime(rt)
+	p, err := wasitter.NewParserWithRuntime(rt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestFallbackTopLevelPredicateSibling(t *testing.T) {
 	}
 	defer tree.Close()
 
-	q, err := sitterwasm.NewQuery(tree.Language(), `(number) @n (#eq? @n "1")`)
+	q, err := wasitter.NewQuery(tree.Language(), `(number) @n (#eq? @n "1")`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,9 +54,9 @@ func TestFallbackTopLevelPredicateSibling(t *testing.T) {
 // but the common wildcard and built-in predicate forms should retain their
 // useful Tree-sitter behavior.
 func TestLegacyQueryFallbackWildcardAndPredicate(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
-	query, err := sitterwasm.NewQuery(tree.Language(), `(_) @node`)
+	query, err := wasitter.NewQuery(tree.Language(), `(_) @node`)
 	if err != nil {
 		t.Fatalf("fallback wildcard query: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestLegacyQueryFallbackWildcardAndPredicate(t *testing.T) {
 	}
 	// Quoted literals represent anonymous grammar symbols. The compatibility
 	// matcher should expose them just like the native query engine.
-	punctuation, err := sitterwasm.NewQuery(tree.Language(), `"," @comma`)
+	punctuation, err := wasitter.NewQuery(tree.Language(), `"," @comma`)
 	if err != nil {
 		t.Fatalf("fallback anonymous query: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestLegacyQueryFallbackWildcardAndPredicate(t *testing.T) {
 
 	// parseWithWASM uses the compact `[1, 1]` fixture; excluding `2` should
 	// therefore retain both numeric captures.
-	predicate, err := sitterwasm.NewQuery(tree.Language(), `((number) @n (#not-any-of? @n "2"))`)
+	predicate, err := wasitter.NewQuery(tree.Language(), `((number) @n (#not-any-of? @n "2"))`)
 	if err != nil {
 		t.Fatalf("fallback predicate query: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestLegacyQueryFallbackWildcardAndPredicate(t *testing.T) {
 	// A capture attached to an alternation applies to every branch. The
 	// compatibility parser should propagate the annotation instead of dropping
 	// it when it recursively materializes the branch patterns.
-	alternatives, err := sitterwasm.NewQuery(tree.Language(), `[(number) (array)] @value`)
+	alternatives, err := wasitter.NewQuery(tree.Language(), `[(number) (array)] @value`)
 	if err != nil {
 		t.Fatalf("fallback alternation query: %v", err)
 	}
@@ -123,15 +123,15 @@ func TestLegacyQueryFallbackWildcardAndPredicate(t *testing.T) {
 // named patterns. Keep the legacy parser's metadata in lock-step with the
 // native query compiler for a modifier written before the capture annotation.
 func TestFallbackAnonymousTokenPreCaptureQuantifier(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	query, err := sitterwasm.NewQuery(tree.Language(), `","? @comma`)
+	query, err := wasitter.NewQuery(tree.Language(), `","? @comma`)
 	if err != nil {
 		t.Fatalf("fallback anonymous pre-capture quantifier: %v", err)
 	}
 	defer query.Close()
-	if got := query.CaptureQuantifierForID(0, 0); got != sitterwasm.CaptureQuantifierZeroOrOne {
+	if got := query.CaptureQuantifierForID(0, 0); got != wasitter.CaptureQuantifierZeroOrOne {
 		t.Fatalf("anonymous capture quantifier = %v, want zero-or-one", got)
 	}
 	// The compact matcher intentionally does not implement repetition state,
@@ -142,55 +142,55 @@ func TestFallbackAnonymousTokenPreCaptureQuantifier(t *testing.T) {
 }
 
 func TestFallbackRejectsUnknownNodeType(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	query, err := sitterwasm.NewQuery(tree.Language(), `(does_not_exist) @x`)
+	query, err := wasitter.NewQuery(tree.Language(), `(does_not_exist) @x`)
 	if query != nil {
 		query.Close()
 		t.Fatal("unknown fallback node type unexpectedly compiled")
 	}
-	var queryErr *sitterwasm.QueryError
+	var queryErr *wasitter.QueryError
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("fallback error = %v, want *QueryError", err)
 	}
-	if queryErr.Kind != sitterwasm.QueryErrorNodeType || queryErr.Message != "does_not_exist" {
+	if queryErr.Kind != wasitter.QueryErrorNodeType || queryErr.Message != "does_not_exist" {
 		t.Fatalf("fallback error = %#v, want node-type diagnostic", queryErr)
 	}
 }
 
 func TestFallbackRejectsUnknownPredicateCapture(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	query, err := sitterwasm.NewQuery(tree.Language(), `((number) @n (#eq? @missing "1"))`)
+	query, err := wasitter.NewQuery(tree.Language(), `((number) @n (#eq? @missing "1"))`)
 	if query != nil {
 		query.Close()
 		t.Fatal("unknown fallback predicate capture unexpectedly compiled")
 	}
-	var queryErr *sitterwasm.QueryError
+	var queryErr *wasitter.QueryError
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("fallback error = %v, want *QueryError", err)
 	}
-	if queryErr.Kind != sitterwasm.QueryErrorCapture || queryErr.Message != "missing" {
+	if queryErr.Kind != wasitter.QueryErrorCapture || queryErr.Message != "missing" {
 		t.Fatalf("fallback error = %#v, want capture diagnostic", queryErr)
 	}
 }
 
 func TestFallbackRejectsUnknownField(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	query, err := sitterwasm.NewQuery(tree.Language(), `(pair badfield: (number))`)
+	query, err := wasitter.NewQuery(tree.Language(), `(pair badfield: (number))`)
 	if query != nil {
 		query.Close()
 		t.Fatal("unknown fallback field unexpectedly compiled")
 	}
-	var queryErr *sitterwasm.QueryError
+	var queryErr *wasitter.QueryError
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("fallback error = %v, want *QueryError", err)
 	}
-	if queryErr.Kind != sitterwasm.QueryErrorField || queryErr.Message != "badfield" || queryErr.Offset != 6 {
+	if queryErr.Kind != wasitter.QueryErrorField || queryErr.Message != "badfield" || queryErr.Offset != 6 {
 		t.Fatalf("fallback error = %#v, want field diagnostic at byte 6", queryErr)
 	}
 }
@@ -201,10 +201,10 @@ func TestFallbackRejectsUnknownField(t *testing.T) {
 // query can compile successfully when the native query ABI is unavailable and
 // fail after switching to the bundled/native path.
 func TestFallbackRejectsNonASCIIIdentifiers(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	validQuoted, err := sitterwasm.NewQuery(tree.Language(), `((string) @s (#eq? @s "猫"))`)
+	validQuoted, err := wasitter.NewQuery(tree.Language(), `((string) @s (#eq? @s "猫"))`)
 	if err != nil {
 		t.Fatalf("quoted Unicode predicate value rejected: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestFallbackRejectsNonASCIIIdentifiers(t *testing.T) {
 		`((number) @n (#猫? @n "1"))`,
 	} {
 		t.Run(source, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(tree.Language(), source)
+			q, err := wasitter.NewQuery(tree.Language(), source)
 			if q != nil {
 				_ = q.Close()
 				t.Fatalf("non-ASCII query unexpectedly compiled: %q", source)
@@ -226,11 +226,11 @@ func TestFallbackRejectsNonASCIIIdentifiers(t *testing.T) {
 			if err == nil {
 				t.Fatalf("non-ASCII query returned nil error: %q", source)
 			}
-			var queryErr *sitterwasm.QueryError
+			var queryErr *wasitter.QueryError
 			if !errors.As(err, &queryErr) {
 				t.Fatalf("error = %T %v, want *QueryError", err, err)
 			}
-			if queryErr.Kind != sitterwasm.QueryErrorSyntax {
+			if queryErr.Kind != wasitter.QueryErrorSyntax {
 				t.Fatalf("error kind = %d, want syntax", queryErr.Kind)
 			}
 		})
@@ -241,10 +241,10 @@ func TestFallbackRejectsNonASCIIIdentifiers(t *testing.T) {
 // constructor. Ensure that this partial native surface takes the same
 // compatibility path instead of reporting a successful but empty query.
 func TestPartialNativeQueryABIUsesFallbackExecution(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	wasm = hideWASMExport(t, wasm, "tsw_query_cursor_new", "old_query_cursor_new")
 	tree := parseWithWASM(t, wasm)
-	query, err := sitterwasm.NewQuery(tree.Language(), `(number) @n`)
+	query, err := wasitter.NewQuery(tree.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatalf("partial native query: %v", err)
 	}
@@ -277,16 +277,16 @@ func TestPartialNativeQueryABIUsesFallbackExecution(t *testing.T) {
 }
 
 func TestFallbackCursorRangeAndPredicateAfterExec(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(),
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(),
 		"tsw_query_cursor_new", "old_query_cursor_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `((number) @n (#eq? @n "1"))`)
+	q, err := wasitter.NewQuery(tree.Language(), `((number) @n (#eq? @n "1"))`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -315,16 +315,16 @@ func TestFallbackCursorRangeAndPredicateAfterExec(t *testing.T) {
 }
 
 func TestPartialNativeMissingNextMatchFallsBack(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(),
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(),
 		"tsw_query_cursor_next_match", "old_query_cursor_next_match")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(tree.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -346,18 +346,18 @@ func TestPartialNativeMissingNextMatchFallsBack(t *testing.T) {
 }
 
 func TestPartialNativeMissingNextCaptureUsesMatchFallback(t *testing.T) {
-	wasm := sitterwasm.BuiltinJSONWASM()
+	wasm := wasitter.BuiltinJSONWASM()
 	// This symbol appears in the export and linker-name sections. Rename all
 	// occurrences so Runtime.function cannot resolve either copy.
 	wasm = bytes.ReplaceAll(wasm, []byte("tsw_query_cursor_next_capture"), []byte("old_query_cursor_next_capturX"))
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(tree.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	if err := c.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -383,10 +383,10 @@ func TestPartialNativeMissingNextCaptureUsesMatchFallback(t *testing.T) {
 // predicate/range filtering so rejected candidates leave the same observable
 // gaps as native iteration.
 func TestFallbackQueryMatchIDsAreStableAndZeroBased(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `(number) @n`)
+	q, err := wasitter.NewQuery(tree.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +396,7 @@ func TestFallbackQueryMatchIDsAreStableAndZeroBased(t *testing.T) {
 		t.Fatalf("fallback detached ids = %#v, want 0,1", all)
 	}
 
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	if err := cursor.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -415,10 +415,10 @@ func TestFallbackQueryMatchIDsAreStableAndZeroBased(t *testing.T) {
 // reused. A source-wide compatibility predicate list would require the one
 // capture to satisfy both literals and incorrectly reject every match.
 func TestFallbackPredicatesAreScopedPerPattern(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(),
+	q, err := wasitter.NewQuery(tree.Language(),
 		"((number) @n (#eq? @n \"1\"))\n((number) @n (#eq? @n \"2\"))")
 	if err != nil {
 		t.Fatal(err)
@@ -449,10 +449,10 @@ func TestFallbackPredicatesAreScopedPerPattern(t *testing.T) {
 // source-wide predicate scanner and accidentally applies a preceding pattern's
 // predicate to every later pattern.
 func TestFallbackUnfilteredPatternDoesNotInheritPredicate(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(),
+	q, err := wasitter.NewQuery(tree.Language(),
 		"((number) @n (#eq? @n \"1\"))\n(number) @n")
 	if err != nil {
 		t.Fatal(err)
@@ -479,10 +479,10 @@ func TestFallbackUnfilteredPatternDoesNotInheritPredicate(t *testing.T) {
 }
 
 func TestFallbackAlternativesSharePatternIndex(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `[(number) (array)] @value`)
+	q, err := wasitter.NewQuery(tree.Language(), `[(number) (array)] @value`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -504,10 +504,10 @@ func TestFallbackAlternativesSharePatternIndex(t *testing.T) {
 }
 
 func TestFallbackAlternativePredicateAppliesToEveryBranch(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `[(number) (array)] @value (#eq? @value "1")`)
+	q, err := wasitter.NewQuery(tree.Language(), `[(number) (array)] @value (#eq? @value "1")`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,10 +526,10 @@ func TestFallbackAlternativePredicateAppliesToEveryBranch(t *testing.T) {
 }
 
 func TestFallbackAlternativeFollowedByPatternKeepsIndices(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), "[(number) (array)] @value\n(number) @number")
+	q, err := wasitter.NewQuery(tree.Language(), "[(number) (array)] @value\n(number) @number")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,10 +547,10 @@ func TestFallbackAlternativeFollowedByPatternKeepsIndices(t *testing.T) {
 }
 
 func TestFallbackGroupedMetadataUsesSourcePatternIndices(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), "[(number) (array)] @value\n((number) @n (#eq? @n \"2\"))")
+	q, err := wasitter.NewQuery(tree.Language(), "[(number) (array)] @value\n((number) @n (#eq? @n \"2\"))")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -565,15 +565,15 @@ func TestFallbackGroupedMetadataUsesSourcePatternIndices(t *testing.T) {
 // using the execution root as a proxy would incorrectly admit every
 // descendant.
 func TestFallbackMaxStartDepthUsesPatternAnchor(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(tree.Language(), `(number)`)
+	q, err := wasitter.NewQuery(tree.Language(), `(number)`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer q.Close()
-	c := sitterwasm.NewQueryCursor()
+	c := wasitter.NewQueryCursor()
 	defer c.Close()
 	c.SetMaxStartDepth(uint32(1))
 	if err := c.Exec(q, tree.RootNode()); err != nil {
@@ -586,7 +586,7 @@ func TestFallbackMaxStartDepthUsesPatternAnchor(t *testing.T) {
 }
 
 func TestFallbackRejectsMalformedBuiltInPredicate(t *testing.T) {
-	wasm := hideWASMExport(t, sitterwasm.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
+	wasm := hideWASMExport(t, wasitter.BuiltinJSONWASM(), "tsw_query_new", "old_query_new")
 	tree := parseWithWASM(t, wasm)
 	defer tree.Close()
 	for _, source := range []string{
@@ -594,13 +594,13 @@ func TestFallbackRejectsMalformedBuiltInPredicate(t *testing.T) {
 		`((number) @n (#match? @n "["))`,
 		`((number) @n (#set!))`,
 	} {
-		q, err := sitterwasm.NewQuery(tree.Language(), source)
+		q, err := wasitter.NewQuery(tree.Language(), source)
 		if q != nil {
 			q.Close()
 			t.Fatalf("%q unexpectedly compiled", source)
 		}
-		var queryErr *sitterwasm.QueryError
-		if !errors.As(err, &queryErr) || queryErr.Kind != sitterwasm.QueryErrorPredicate {
+		var queryErr *wasitter.QueryError
+		if !errors.As(err, &queryErr) || queryErr.Kind != wasitter.QueryErrorPredicate {
 			t.Fatalf("%q err=%T %v, want predicate QueryError", source, err, err)
 		}
 	}

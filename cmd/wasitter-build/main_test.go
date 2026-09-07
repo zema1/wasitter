@@ -16,7 +16,7 @@ func TestRunSubcommandHelp(t *testing.T) {
 	if !errors.As(err, &help) {
 		t.Fatalf("run -h error = %v, want helpError", err)
 	}
-	if !strings.Contains(help.message, "sitterwasm-build build-grammar") {
+	if !strings.Contains(help.message, "wasitter-build build-grammar") {
 		t.Fatalf("help output = %q", help.message)
 	}
 }

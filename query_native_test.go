@@ -1,16 +1,16 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func TestNativeQueryABIAndMetadata(t *testing.T) {
 	p, rt := newJSONParser(t)
-	q, err := sitterwasm.NewQuery(p.Language(), `(number) @number`)
+	q, err := wasitter.NewQuery(p.Language(), `(number) @number`)
 	if err != nil {
 		t.Fatalf("NewQuery: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestNativeQueryPredicatesAndCursorRanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
+	q, err := wasitter.NewQuery(p.Language(), `((number) @n (#eq? @n "1"))`)
 	if err != nil {
 		t.Fatalf("predicate query: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestNativeQueryPredicatesAndCursorRanges(t *testing.T) {
 		}
 	}
 
-	cursor := sitterwasm.NewQueryCursor()
+	cursor := wasitter.NewQueryCursor()
 	defer cursor.Close()
 	if err := cursor.Exec(q, tree.RootNode()); err != nil {
 		t.Fatal(err)
@@ -73,7 +73,7 @@ func TestNativeQueryPredicatesAndCursorRanges(t *testing.T) {
 
 	// A byte range that intersects only the middle scalar should suppress the
 	// two outer matches while retaining the complete matched node.
-	rangeQuery, err := sitterwasm.NewQuery(p.Language(), `(number) @n`)
+	rangeQuery, err := wasitter.NewQuery(p.Language(), `(number) @n`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,19 +93,19 @@ func TestNativeQueryPredicatesAndCursorRanges(t *testing.T) {
 
 func TestNativeQueryErrorsAndDisableOperations(t *testing.T) {
 	p, _ := newJSONParser(t)
-	q, err := sitterwasm.NewQuery(p.Language(), `(does_not_exist) @x`)
+	q, err := wasitter.NewQuery(p.Language(), `(does_not_exist) @x`)
 	if q != nil {
 		t.Fatal("invalid query returned a query value")
 	}
-	var queryErr *sitterwasm.QueryError
+	var queryErr *wasitter.QueryError
 	if !errors.As(err, &queryErr) {
 		t.Fatalf("error = %v, want QueryError", err)
 	}
-	if queryErr.Kind != sitterwasm.QueryErrorNodeType {
+	if queryErr.Kind != wasitter.QueryErrorNodeType {
 		t.Fatalf("query error kind = %d, want node type", queryErr.Kind)
 	}
 
-	q, err = sitterwasm.NewQuery(p.Language(), `(number) @n (string) @s`)
+	q, err = wasitter.NewQuery(p.Language(), `(number) @n (string) @s`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestQueryContextConstructorStillWorks(t *testing.T) {
 	// Keep a direct context call in the parity suite so accidental changes to
 	// constructor defaults are caught by a test that does not use package
 	// helpers.
-	p, rt, err := sitterwasm.NewJSONParser(context.Background())
+	p, rt, err := wasitter.NewJSONParser(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestNativeQueryMultiplePatternsWildcardsAndQuantifiers(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tree.Close()
-	q, err := sitterwasm.NewQuery(p.Language(), "(number) @n\n(string) @s")
+	q, err := wasitter.NewQuery(p.Language(), "(number) @n\n(string) @s")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestNativeQueryMultiplePatternsWildcardsAndQuantifiers(t *testing.T) {
 		}
 	}
 
-	wild, err := sitterwasm.NewQuery(p.Language(), `(_) @any`)
+	wild, err := wasitter.NewQuery(p.Language(), `(_) @any`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,12 +182,12 @@ func TestNativeQueryMultiplePatternsWildcardsAndQuantifiers(t *testing.T) {
 		t.Fatal("wildcard returned no named nodes")
 	}
 
-	repeated, err := sitterwasm.NewQuery(p.Language(), `[(number) @n (string) @s]`)
+	repeated, err := wasitter.NewQuery(p.Language(), `[(number) @n (string) @s]`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer repeated.Close()
-	if repeated.CaptureQuantifierForID(0, 0) == sitterwasm.CaptureQuantifierZero {
+	if repeated.CaptureQuantifierForID(0, 0) == wasitter.CaptureQuantifierZero {
 		t.Error("capture quantifier unexpectedly zero")
 	}
 }
@@ -209,7 +209,7 @@ func TestNativeQueryTextPredicateVariants(t *testing.T) {
 		{name: "not-eq", text: `((number) @n (#not-eq? @n "2"))`, want: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			q, err := sitterwasm.NewQuery(p.Language(), tc.text)
+			q, err := wasitter.NewQuery(p.Language(), tc.text)
 			if err != nil {
 				t.Fatal(err)
 			}

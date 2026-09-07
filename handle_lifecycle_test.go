@@ -1,14 +1,14 @@
-package sitterwasm_test
+package wasitter_test
 
 import (
 	"context"
 	"testing"
 
-	sitterwasm "github.com/zema1/sitterwasm"
+	wasitter "github.com/zema1/wasitter"
 )
 
 func TestRuntimeCloseInvalidatesPublicGuestHandles(t *testing.T) {
-	runtime, err := sitterwasm.NewJSONRuntime(context.Background())
+	runtime, err := wasitter.NewJSONRuntime(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestRuntimeCloseInvalidatesPublicGuestHandles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parser, err := sitterwasm.NewParserWithRuntime(runtime)
+	parser, err := wasitter.NewParserWithRuntime(runtime)
 	if err != nil {
 		t.Fatal(err)
 	}

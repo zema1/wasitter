@@ -1,6 +1,6 @@
 # Native parity harness
 
-This directory is a separate Go module so the main `sitterwasm` module remains
+This directory is a separate Go module so the main `wasitter` module remains
 CGO-free. It builds the upstream Tree-sitter Go bindings for the checked-in
 grammar artifacts with CGO, then compares their parser, query, and cursor
 results with the portable WASM implementation.
@@ -18,7 +18,7 @@ grammar releases recorded in the registry (the core runtime is
 and compares each one for which a native binding and fixture are registered.
 When adding a grammar, add its native module and fixture in
 `grammar_parity_test.go` as part of the same change. This is a development/CI
-comparison tool, not a dependency of applications importing `sitterwasm`.
+comparison tool, not a dependency of applications importing `wasitter`.
 
 ## Benchmark methodology
 

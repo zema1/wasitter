@@ -1,4 +1,4 @@
-package sitterwasm
+package wasitter
 
 import (
 	"context"
@@ -42,7 +42,7 @@ func (n Node) IsNull() bool {
 	if n.handle == 0 || n.tree == nil {
 		return true
 	}
-	v, err := n.boolValue([]string{"tsw_node_is_null", "sitterwasm_node_is_null", "ts_node_is_null", "node_is_null"})
+	v, err := n.boolValue([]string{"tsw_node_is_null", "wasitter_node_is_null", "ts_node_is_null", "node_is_null"})
 	// A node whose owning tree has been closed is no longer usable and is
 	// treated as null for value-style navigation methods.
 	if err != nil {
@@ -87,7 +87,7 @@ func (n Node) Id() uintptr {
 		return 0
 	}
 	if value, err := n.uintValue([]string{
-		"tsw_node_id", "sitterwasm_node_id", "ts_node_id", "node_id",
+		"tsw_node_id", "wasitter_node_id", "ts_node_id", "node_id",
 	}); err == nil && value != 0 {
 		return uintptr(value)
 	}
@@ -159,7 +159,7 @@ func (n Node) Type() string {
 
 // TypeE returns the grammar node type and any ABI or lifecycle error.
 func (n Node) TypeE() (string, error) {
-	return n.stringValue([]string{"tsw_node_type", "sitterwasm_node_type", "ts_node_type", "node_type"})
+	return n.stringValue([]string{"tsw_node_type", "wasitter_node_type", "ts_node_type", "node_type"})
 }
 
 // Kind is an idiomatic alias for Type.
@@ -167,7 +167,7 @@ func (n Node) Kind() string { return n.Type() }
 
 // KindID returns the numerical grammar symbol id.
 func (n Node) KindID() uint16 {
-	v, _ := n.uintValue([]string{"tsw_node_kind_id", "tsw_node_symbol", "sitterwasm_node_kind_id", "ts_node_symbol", "node_kind_id"})
+	v, _ := n.uintValue([]string{"tsw_node_kind_id", "tsw_node_symbol", "wasitter_node_kind_id", "ts_node_symbol", "node_kind_id"})
 	if v > uint32(^uint16(0)) {
 		return 0
 	}
@@ -182,7 +182,7 @@ func (n Node) KindId() uint16 { return n.KindID() }
 
 // GrammarType returns the grammar-specific type when exposed by the bridge.
 func (n Node) GrammarType() string {
-	s, _ := n.stringValue([]string{"tsw_node_grammar_type", "sitterwasm_node_grammar_type", "ts_node_grammar_type", "node_grammar_type"})
+	s, _ := n.stringValue([]string{"tsw_node_grammar_type", "wasitter_node_grammar_type", "ts_node_grammar_type", "node_grammar_type"})
 	return s
 }
 
@@ -191,7 +191,7 @@ func (n Node) GrammarName() string { return n.GrammarType() }
 
 // GrammarSymbol returns the grammar-specific symbol id for this node.
 func (n Node) GrammarSymbol() uint16 {
-	v, _ := n.uintValue([]string{"tsw_node_grammar_symbol", "sitterwasm_node_grammar_symbol", "ts_node_grammar_symbol", "node_grammar_symbol"})
+	v, _ := n.uintValue([]string{"tsw_node_grammar_symbol", "wasitter_node_grammar_symbol", "ts_node_grammar_symbol", "node_grammar_symbol"})
 	if v > uint32(^uint16(0)) {
 		return 0
 	}
@@ -220,7 +220,7 @@ func (n Node) LanguageE() (*Language, error) {
 	}
 	result, err := n.call([]string{
 		"tsw_node_language",
-		"sitterwasm_node_language",
+		"wasitter_node_language",
 		"ts_node_language",
 		"node_language",
 	})
@@ -253,42 +253,42 @@ func (n Node) LanguageE() (*Language, error) {
 
 // IsNamed reports whether the node is named in the grammar.
 func (n Node) IsNamed() bool {
-	v, _ := n.boolValue([]string{"tsw_node_is_named", "sitterwasm_node_is_named", "ts_node_is_named", "node_is_named"})
+	v, _ := n.boolValue([]string{"tsw_node_is_named", "wasitter_node_is_named", "ts_node_is_named", "node_is_named"})
 	return v
 }
 
 // IsMissing reports whether the node was inserted during error recovery.
 func (n Node) IsMissing() bool {
-	v, _ := n.boolValue([]string{"tsw_node_is_missing", "sitterwasm_node_is_missing", "ts_node_is_missing", "node_is_missing"})
+	v, _ := n.boolValue([]string{"tsw_node_is_missing", "wasitter_node_is_missing", "ts_node_is_missing", "node_is_missing"})
 	return v
 }
 
 // IsExtra reports whether the node is an extra token.
 func (n Node) IsExtra() bool {
-	v, _ := n.boolValue([]string{"tsw_node_is_extra", "sitterwasm_node_is_extra", "ts_node_is_extra", "node_is_extra"})
+	v, _ := n.boolValue([]string{"tsw_node_is_extra", "wasitter_node_is_extra", "ts_node_is_extra", "node_is_extra"})
 	return v
 }
 
 // HasChanges reports whether incremental parsing marked this node changed.
 func (n Node) HasChanges() bool {
-	v, _ := n.boolValue([]string{"tsw_node_has_changes", "sitterwasm_node_has_changes", "ts_node_has_changes", "node_has_changes"})
+	v, _ := n.boolValue([]string{"tsw_node_has_changes", "wasitter_node_has_changes", "ts_node_has_changes", "node_has_changes"})
 	return v
 }
 
 // HasError reports whether this node or one of its descendants has an error.
 func (n Node) HasError() bool {
-	v, _ := n.boolValue([]string{"tsw_node_has_error", "sitterwasm_node_has_error", "ts_node_has_error", "node_has_error"})
+	v, _ := n.boolValue([]string{"tsw_node_has_error", "wasitter_node_has_error", "ts_node_has_error", "node_has_error"})
 	return v
 }
 
 // IsError reports whether this node is itself an ERROR node.
 func (n Node) IsError() bool {
-	v, err := n.boolValue([]string{"tsw_node_is_error", "sitterwasm_node_is_error", "ts_node_is_error", "node_is_error"})
+	v, err := n.boolValue([]string{"tsw_node_is_error", "wasitter_node_is_error", "ts_node_is_error", "node_is_error"})
 	if err == nil {
 		return v
 	}
 	// `ts_node_is_error` was added to the C API after some of the first
-	// sitterwasm bridge modules were published.  The canonical Tree-sitter
+	// wasitter bridge modules were published.  The canonical Tree-sitter
 	// representation still reserves the all-ones symbol id for ERROR nodes,
 	// so recover the predicate through the stable symbol accessor when a
 	// compatibility module omits the convenience export.  Keep malformed or
@@ -301,7 +301,7 @@ func (n Node) IsError() bool {
 
 // ParseState returns the parser state at this node.
 func (n Node) ParseState() uint16 {
-	v, _ := n.uintValue([]string{"tsw_node_parse_state", "sitterwasm_node_parse_state", "ts_node_parse_state", "node_parse_state"})
+	v, _ := n.uintValue([]string{"tsw_node_parse_state", "wasitter_node_parse_state", "ts_node_parse_state", "node_parse_state"})
 	if v > uint32(^uint16(0)) {
 		return 0
 	}
@@ -310,7 +310,7 @@ func (n Node) ParseState() uint16 {
 
 // NextParseState returns the parser state immediately after this node.
 func (n Node) NextParseState() uint16 {
-	v, _ := n.uintValue([]string{"tsw_node_next_parse_state", "sitterwasm_node_next_parse_state", "ts_node_next_parse_state", "node_next_parse_state"})
+	v, _ := n.uintValue([]string{"tsw_node_next_parse_state", "wasitter_node_next_parse_state", "ts_node_next_parse_state", "node_next_parse_state"})
 	if v > uint32(^uint16(0)) {
 		return 0
 	}
@@ -338,31 +338,31 @@ func (n Node) position(names []string) (Point, error) {
 
 // StartByte returns the inclusive start byte offset.
 func (n Node) StartByte() uint32 {
-	v, _ := n.uintValue([]string{"tsw_node_start_byte", "sitterwasm_node_start_byte", "ts_node_start_byte", "node_start_byte"})
+	v, _ := n.uintValue([]string{"tsw_node_start_byte", "wasitter_node_start_byte", "ts_node_start_byte", "node_start_byte"})
 	return v
 }
 
 // StartByteE returns the inclusive start byte offset and any ABI or lifecycle
 // error.
 func (n Node) StartByteE() (uint32, error) {
-	return n.uintValue([]string{"tsw_node_start_byte", "sitterwasm_node_start_byte", "ts_node_start_byte", "node_start_byte"})
+	return n.uintValue([]string{"tsw_node_start_byte", "wasitter_node_start_byte", "ts_node_start_byte", "node_start_byte"})
 }
 
 // EndByte returns the exclusive end byte offset.
 func (n Node) EndByte() uint32 {
-	v, _ := n.uintValue([]string{"tsw_node_end_byte", "sitterwasm_node_end_byte", "ts_node_end_byte", "node_end_byte"})
+	v, _ := n.uintValue([]string{"tsw_node_end_byte", "wasitter_node_end_byte", "ts_node_end_byte", "node_end_byte"})
 	return v
 }
 
 // EndByteE returns the exclusive end byte offset and any ABI or lifecycle
 // error.
 func (n Node) EndByteE() (uint32, error) {
-	return n.uintValue([]string{"tsw_node_end_byte", "sitterwasm_node_end_byte", "ts_node_end_byte", "node_end_byte"})
+	return n.uintValue([]string{"tsw_node_end_byte", "wasitter_node_end_byte", "ts_node_end_byte", "node_end_byte"})
 }
 
 // StartPoint returns the inclusive start position.
 func (n Node) StartPoint() Point {
-	p, _ := n.position([]string{"tsw_node_start_point", "sitterwasm_node_start_point", "ts_node_start_point", "node_start_point"})
+	p, _ := n.position([]string{"tsw_node_start_point", "wasitter_node_start_point", "ts_node_start_point", "node_start_point"})
 	return p
 }
 
@@ -372,12 +372,12 @@ func (n Node) StartPosition() Point { return n.StartPoint() }
 // StartPointE returns the inclusive start position and any ABI or lifecycle
 // error.
 func (n Node) StartPointE() (Point, error) {
-	return n.position([]string{"tsw_node_start_point", "sitterwasm_node_start_point", "ts_node_start_point", "node_start_point"})
+	return n.position([]string{"tsw_node_start_point", "wasitter_node_start_point", "ts_node_start_point", "node_start_point"})
 }
 
 // EndPoint returns the exclusive end position.
 func (n Node) EndPoint() Point {
-	p, _ := n.position([]string{"tsw_node_end_point", "sitterwasm_node_end_point", "ts_node_end_point", "node_end_point"})
+	p, _ := n.position([]string{"tsw_node_end_point", "wasitter_node_end_point", "ts_node_end_point", "node_end_point"})
 	return p
 }
 
@@ -387,7 +387,7 @@ func (n Node) EndPosition() Point { return n.EndPoint() }
 // EndPointE returns the exclusive end position and any ABI or lifecycle
 // error.
 func (n Node) EndPointE() (Point, error) {
-	return n.position([]string{"tsw_node_end_point", "sitterwasm_node_end_point", "ts_node_end_point", "node_end_point"})
+	return n.position([]string{"tsw_node_end_point", "wasitter_node_end_point", "ts_node_end_point", "node_end_point"})
 }
 
 // Range returns this node's complete source range.
@@ -400,27 +400,27 @@ func (n Node) ByteRange() (uint32, uint32) { return n.StartByte(), n.EndByte() }
 
 // Parent returns the parent node, or a null node for the root.
 func (n Node) Parent() Node {
-	return n.related([]string{"tsw_node_parent", "sitterwasm_node_parent", "ts_node_parent", "node_parent"})
+	return n.related([]string{"tsw_node_parent", "wasitter_node_parent", "ts_node_parent", "node_parent"})
 }
 
 // NextSibling returns the next sibling node.
 func (n Node) NextSibling() Node {
-	return n.related([]string{"tsw_node_next_sibling", "sitterwasm_node_next_sibling", "ts_node_next_sibling", "node_next_sibling"})
+	return n.related([]string{"tsw_node_next_sibling", "wasitter_node_next_sibling", "ts_node_next_sibling", "node_next_sibling"})
 }
 
 // PrevSibling returns the previous sibling node.
 func (n Node) PrevSibling() Node {
-	return n.related([]string{"tsw_node_prev_sibling", "sitterwasm_node_prev_sibling", "ts_node_prev_sibling", "node_prev_sibling"})
+	return n.related([]string{"tsw_node_prev_sibling", "wasitter_node_prev_sibling", "ts_node_prev_sibling", "node_prev_sibling"})
 }
 
 // NextNamedSibling returns the next named sibling node.
 func (n Node) NextNamedSibling() Node {
-	return n.related([]string{"tsw_node_next_named_sibling", "sitterwasm_node_next_named_sibling", "ts_node_next_named_sibling", "node_next_named_sibling"})
+	return n.related([]string{"tsw_node_next_named_sibling", "wasitter_node_next_named_sibling", "ts_node_next_named_sibling", "node_next_named_sibling"})
 }
 
 // PrevNamedSibling returns the previous named sibling node.
 func (n Node) PrevNamedSibling() Node {
-	return n.related([]string{"tsw_node_prev_named_sibling", "sitterwasm_node_prev_named_sibling", "ts_node_prev_named_sibling", "node_prev_named_sibling"})
+	return n.related([]string{"tsw_node_prev_named_sibling", "wasitter_node_prev_named_sibling", "ts_node_prev_named_sibling", "node_prev_named_sibling"})
 }
 
 func (n Node) related(names []string) Node {
@@ -455,7 +455,7 @@ func hostInt(value uint32) (int, bool) {
 
 // ChildCount returns the number of children, including anonymous extras.
 func (n Node) ChildCount() int {
-	v, _ := n.uintValue([]string{"tsw_node_child_count", "sitterwasm_node_child_count", "ts_node_child_count", "node_child_count"})
+	v, _ := n.uintValue([]string{"tsw_node_child_count", "wasitter_node_child_count", "ts_node_child_count", "node_child_count"})
 	if value, ok := hostInt(v); ok {
 		return value
 	}
@@ -465,7 +465,7 @@ func (n Node) ChildCount() int {
 // ChildCountE returns the number of children and any ABI, lifecycle, or host
 // integer-overflow error.
 func (n Node) ChildCountE() (int, error) {
-	v, err := n.uintValue([]string{"tsw_node_child_count", "sitterwasm_node_child_count", "ts_node_child_count", "node_child_count"})
+	v, err := n.uintValue([]string{"tsw_node_child_count", "wasitter_node_child_count", "ts_node_child_count", "node_child_count"})
 	if err != nil {
 		return 0, err
 	}
@@ -478,7 +478,7 @@ func (n Node) ChildCountE() (int, error) {
 
 // NamedChildCount returns the number of named children.
 func (n Node) NamedChildCount() int {
-	v, _ := n.uintValue([]string{"tsw_node_named_child_count", "sitterwasm_node_named_child_count", "ts_node_named_child_count", "node_named_child_count"})
+	v, _ := n.uintValue([]string{"tsw_node_named_child_count", "wasitter_node_named_child_count", "ts_node_named_child_count", "node_named_child_count"})
 	if value, ok := hostInt(v); ok {
 		return value
 	}
@@ -488,7 +488,7 @@ func (n Node) NamedChildCount() int {
 // NamedChildCountE returns the number of named children and any ABI,
 // lifecycle, or host integer-overflow error.
 func (n Node) NamedChildCountE() (int, error) {
-	v, err := n.uintValue([]string{"tsw_node_named_child_count", "sitterwasm_node_named_child_count", "ts_node_named_child_count", "node_named_child_count"})
+	v, err := n.uintValue([]string{"tsw_node_named_child_count", "wasitter_node_named_child_count", "ts_node_named_child_count", "node_named_child_count"})
 	if err != nil {
 		return 0, err
 	}
@@ -507,7 +507,7 @@ func (n Node) Child(index int) Node {
 	if index < 0 || uint64(index) > uint64(^uint32(0)) {
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_child", "sitterwasm_node_child", "ts_node_child", "node_child"}, uint64(index))
+	result, err := n.call([]string{"tsw_node_child", "wasitter_node_child", "ts_node_child", "node_child"}, uint64(index))
 	handle, ok := guestNodeHandle(result)
 	if err != nil || !ok || handle == 0 {
 		return Node{}
@@ -520,7 +520,7 @@ func (n Node) NamedChild(index int) Node {
 	if index < 0 || uint64(index) > uint64(^uint32(0)) {
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_named_child", "sitterwasm_node_named_child", "ts_node_named_child", "node_named_child"}, uint64(index))
+	result, err := n.call([]string{"tsw_node_named_child", "wasitter_node_named_child", "ts_node_named_child", "node_named_child"}, uint64(index))
 	handle, ok := guestNodeHandle(result)
 	if err != nil || !ok || handle == 0 {
 		return Node{}
@@ -538,7 +538,7 @@ func (n Node) ChildByFieldName(field string) Node {
 		n.tree.mu.RUnlock()
 		return Node{}
 	}
-	result, _, err := n.tree.rt.callWithInput(context.Background(), []string{"tsw_node_child_by_field_name", "sitterwasm_node_child_by_field_name", "ts_node_child_by_field_name", "node_child_by_field_name"}, []uint64{uint64(n.handle)}, []byte(field))
+	result, _, err := n.tree.rt.callWithInput(context.Background(), []string{"tsw_node_child_by_field_name", "wasitter_node_child_by_field_name", "ts_node_child_by_field_name", "node_child_by_field_name"}, []uint64{uint64(n.handle)}, []byte(field))
 	n.tree.mu.RUnlock()
 	handle, ok := guestNodeHandle(result)
 	if err != nil || !ok || handle == 0 {
@@ -553,7 +553,7 @@ func (n Node) ChildByFieldId(fieldID uint16) Node {
 	// a language-name round trip and preserves aliases accurately.
 	if result, err := n.call([]string{
 		"tsw_node_child_by_field_id",
-		"sitterwasm_node_child_by_field_id",
+		"wasitter_node_child_by_field_id",
 		"ts_node_child_by_field_id",
 		"node_child_by_field_id",
 	}, uint64(fieldID)); err == nil && len(result) > 0 {
@@ -581,11 +581,11 @@ func (n Node) FieldNameForChild(index int) string {
 	if index < 0 || uint64(index) > uint64(^uint32(0)) {
 		return ""
 	}
-	s, err := n.stringValue([]string{"tsw_node_field_name_for_child_ptr", "tsw_node_field_name_for_child", "tsw_node_field_name", "sitterwasm_node_field_name_for_child", "ts_node_field_name_for_child", "node_field_name_for_child"}, uint64(index))
+	s, err := n.stringValue([]string{"tsw_node_field_name_for_child_ptr", "tsw_node_field_name_for_child", "tsw_node_field_name", "wasitter_node_field_name_for_child", "ts_node_field_name_for_child", "node_field_name_for_child"}, uint64(index))
 	if err == nil {
 		return s
 	}
-	// The field-name accessor was added after the first sitterwasm bridge
+	// The field-name accessor was added after the first wasitter bridge
 	// revisions.  Recover the answer from the stable child/field APIs when a
 	// compatibility module omits it.  Do this only for an explicitly missing
 	// export: an empty string from a native accessor is a meaningful
@@ -601,7 +601,7 @@ func (n Node) FieldNameForNamedChild(index int) string {
 	if index < 0 || uint64(index) > uint64(^uint32(0)) {
 		return ""
 	}
-	s, err := n.stringValue([]string{"tsw_node_field_name_for_named_child", "sitterwasm_node_field_name_for_named_child", "ts_node_field_name_for_named_child", "node_field_name_for_named_child"}, uint64(index))
+	s, err := n.stringValue([]string{"tsw_node_field_name_for_named_child", "wasitter_node_field_name_for_named_child", "ts_node_field_name_for_named_child", "node_field_name_for_named_child"}, uint64(index))
 	if err == nil {
 		return s
 	}
@@ -745,7 +745,7 @@ func (n Node) NamedChildren(cursors ...*TreeCursor) []Node {
 
 // FirstChildForByte returns the first direct child that ends after byte.
 func (n Node) FirstChildForByte(offset uint32) Node {
-	result, err := n.call([]string{"tsw_node_first_child_for_byte", "sitterwasm_node_first_child_for_byte", "ts_node_first_child_for_byte", "node_first_child_for_byte"}, uint64(offset))
+	result, err := n.call([]string{"tsw_node_first_child_for_byte", "wasitter_node_first_child_for_byte", "ts_node_first_child_for_byte", "node_first_child_for_byte"}, uint64(offset))
 	handle, ok := guestNodeHandle(result)
 	if err == nil {
 		if ok && handle != 0 {
@@ -763,7 +763,7 @@ func (n Node) FirstChildForByte(offset uint32) Node {
 
 // FirstNamedChildForByte is the named variant of FirstChildForByte.
 func (n Node) FirstNamedChildForByte(offset uint32) Node {
-	result, err := n.call([]string{"tsw_node_first_named_child_for_byte", "sitterwasm_node_first_named_child_for_byte", "ts_node_first_named_child_for_byte", "node_first_named_child_for_byte"}, uint64(offset))
+	result, err := n.call([]string{"tsw_node_first_named_child_for_byte", "wasitter_node_first_named_child_for_byte", "ts_node_first_named_child_for_byte", "node_first_named_child_for_byte"}, uint64(offset))
 	handle, ok := guestNodeHandle(result)
 	if err == nil {
 		if ok && handle != 0 {
@@ -810,7 +810,7 @@ func (n Node) firstChildForByteFallback(offset uint32, namedOnly bool) Node {
 // descendant is the receiver itself, Tree-sitter returns a null node; callers
 // that need to preserve the receiver can check Equal before calling. Both a
 // Node value and *Node pointer are accepted so code written for either the
-// value-oriented sitterwasm API or the native Go binding compiles unchanged.
+// value-oriented wasitter API or the native Go binding compiles unchanged.
 func (n Node) ChildWithDescendant(value any) Node {
 	descendant, ok := nodeValueArg(value)
 	if !ok {
@@ -845,7 +845,7 @@ func (n Node) ChildWithDescendant(value any) Node {
 		treePairMu.Unlock()
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_child_with_descendant", "sitterwasm_node_child_with_descendant", "ts_node_child_with_descendant", "node_child_with_descendant"}, uint64(descendant.handle))
+	result, err := n.call([]string{"tsw_node_child_with_descendant", "wasitter_node_child_with_descendant", "ts_node_child_with_descendant", "node_child_with_descendant"}, uint64(descendant.handle))
 	var nativeHandle uint32
 	if err == nil && len(result) != 0 {
 		if handle, ok := checkedU32(result[0]); ok {
@@ -886,7 +886,7 @@ func (n Node) DescendantCount() int {
 	if n.IsNull() {
 		return 0
 	}
-	v, err := n.uintValue([]string{"tsw_node_descendant_count", "sitterwasm_node_descendant_count", "ts_node_descendant_count", "node_descendant_count"})
+	v, err := n.uintValue([]string{"tsw_node_descendant_count", "wasitter_node_descendant_count", "ts_node_descendant_count", "node_descendant_count"})
 	if err == nil {
 		if value, ok := hostInt(v); ok {
 			return value
@@ -908,7 +908,7 @@ func (n Node) DescendantForByteRange(start, end uint32) Node {
 	if start > end {
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_descendant_for_byte_range", "sitterwasm_node_descendant_for_byte_range", "ts_node_descendant_for_byte_range", "node_descendant_for_byte_range"}, uint64(start), uint64(end))
+	result, err := n.call([]string{"tsw_node_descendant_for_byte_range", "wasitter_node_descendant_for_byte_range", "ts_node_descendant_for_byte_range", "node_descendant_for_byte_range"}, uint64(start), uint64(end))
 	if err == nil && len(result) > 0 {
 		// A zero handle is the native null-node result, not an invitation to
 		// approximate the query in Go.  Falling back after a successful null
@@ -940,7 +940,7 @@ func (n Node) NamedDescendantForByteRange(start, end uint32) Node {
 	if start > end {
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_named_descendant_for_byte_range", "sitterwasm_named_descendant_for_byte_range", "sitterwasm_node_named_descendant_for_byte_range", "ts_node_named_descendant_for_byte_range", "node_named_descendant_for_byte_range"}, uint64(start), uint64(end))
+	result, err := n.call([]string{"tsw_node_named_descendant_for_byte_range", "wasitter_named_descendant_for_byte_range", "wasitter_node_named_descendant_for_byte_range", "ts_node_named_descendant_for_byte_range", "node_named_descendant_for_byte_range"}, uint64(start), uint64(end))
 	if err == nil && len(result) > 0 {
 		if handle, ok := guestNodeHandle(result); ok {
 			if handle == 0 {
@@ -1007,7 +1007,7 @@ func (n Node) DescendantForPointRange(start, end Point) Node {
 	if comparePoint(start, end) > 0 {
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_descendant_for_point_range", "sitterwasm_node_descendant_for_point_range", "ts_node_descendant_for_point_range", "node_descendant_for_point_range"}, packPoint(start), packPoint(end))
+	result, err := n.call([]string{"tsw_node_descendant_for_point_range", "wasitter_node_descendant_for_point_range", "ts_node_descendant_for_point_range", "node_descendant_for_point_range"}, packPoint(start), packPoint(end))
 	if err == nil && len(result) > 0 {
 		if handle, ok := guestNodeHandle(result); ok {
 			if handle == 0 {
@@ -1031,7 +1031,7 @@ func (n Node) NamedDescendantForPointRange(start, end Point) Node {
 	if comparePoint(start, end) > 0 {
 		return Node{}
 	}
-	result, err := n.call([]string{"tsw_node_named_descendant_for_point_range", "sitterwasm_named_descendant_for_point_range", "sitterwasm_node_named_descendant_for_point_range", "ts_node_named_descendant_for_point_range", "node_named_descendant_for_point_range"}, packPoint(start), packPoint(end))
+	result, err := n.call([]string{"tsw_node_named_descendant_for_point_range", "wasitter_named_descendant_for_point_range", "wasitter_node_named_descendant_for_point_range", "ts_node_named_descendant_for_point_range", "node_named_descendant_for_point_range"}, packPoint(start), packPoint(end))
 	if err == nil && len(result) > 0 {
 		if handle, ok := guestNodeHandle(result); ok {
 			if handle == 0 {
@@ -1265,7 +1265,7 @@ func (n Node) toSExpression(root bool) string {
 	if n.IsNull() {
 		return "(NULL)"
 	}
-	if s, err := n.stringValue([]string{"tsw_node_to_sexp", "tsw_node_string", "sitterwasm_node_to_sexp", "sitterwasm_node_string", "ts_node_string", "ts_node_to_sexp", "node_to_sexp", "node_string"}); err == nil && s != "" {
+	if s, err := n.stringValue([]string{"tsw_node_to_sexp", "tsw_node_string", "wasitter_node_to_sexp", "wasitter_node_string", "ts_node_string", "ts_node_to_sexp", "node_to_sexp", "node_string"}); err == nil && s != "" {
 		return s
 	}
 	// Generic fallback that follows Tree-sitter's conventional formatting.  In
@@ -1366,7 +1366,7 @@ func (n Node) Equal(value any) bool {
 			return false
 		}
 	}
-	result, err := n.call([]string{"tsw_node_eq", "sitterwasm_node_eq", "ts_node_eq", "node_eq"}, uint64(other.handle))
+	result, err := n.call([]string{"tsw_node_eq", "wasitter_node_eq", "ts_node_eq", "node_eq"}, uint64(other.handle))
 	if err == nil && len(result) > 0 {
 		return result[0] != 0
 	}
@@ -1408,7 +1408,7 @@ func (n Node) Equal(value any) bool {
 // this helper acquires that mutex recursively.
 func (n Node) stableIdentityForEqual() (uint32, bool) {
 	result, err := n.call([]string{
-		"tsw_node_id", "sitterwasm_node_id", "ts_node_id", "node_id",
+		"tsw_node_id", "wasitter_node_id", "ts_node_id", "node_id",
 	})
 	if err != nil || len(result) == 0 {
 		return 0, false
@@ -1434,31 +1434,31 @@ func (n Node) equalMetadata() (nodeEqualMetadata, bool) {
 		return nodeEqualMetadata{}, false
 	}
 	startByte, err := n.uintValue([]string{
-		"tsw_node_start_byte", "sitterwasm_node_start_byte", "ts_node_start_byte", "node_start_byte",
+		"tsw_node_start_byte", "wasitter_node_start_byte", "ts_node_start_byte", "node_start_byte",
 	})
 	if err != nil {
 		return nodeEqualMetadata{}, false
 	}
 	endByte, err := n.uintValue([]string{
-		"tsw_node_end_byte", "sitterwasm_node_end_byte", "ts_node_end_byte", "node_end_byte",
+		"tsw_node_end_byte", "wasitter_node_end_byte", "ts_node_end_byte", "node_end_byte",
 	})
 	if err != nil {
 		return nodeEqualMetadata{}, false
 	}
 	start, err := n.position([]string{
-		"tsw_node_start_point", "sitterwasm_node_start_point", "ts_node_start_point", "node_start_point",
+		"tsw_node_start_point", "wasitter_node_start_point", "ts_node_start_point", "node_start_point",
 	})
 	if err != nil {
 		return nodeEqualMetadata{}, false
 	}
 	end, err := n.position([]string{
-		"tsw_node_end_point", "sitterwasm_node_end_point", "ts_node_end_point", "node_end_point",
+		"tsw_node_end_point", "wasitter_node_end_point", "ts_node_end_point", "node_end_point",
 	})
 	if err != nil {
 		return nodeEqualMetadata{}, false
 	}
 	symbol, err := n.uintValue([]string{
-		"tsw_node_kind_id", "tsw_node_symbol", "sitterwasm_node_kind_id", "ts_node_symbol", "node_kind_id",
+		"tsw_node_kind_id", "tsw_node_symbol", "wasitter_node_kind_id", "ts_node_symbol", "node_kind_id",
 	})
 	if err != nil {
 		return nodeEqualMetadata{}, false
@@ -1517,7 +1517,7 @@ func (n Node) Edit(edit any) error {
 	if mem == nil || !mem.Write(ptr, buf) {
 		return io.ErrShortWrite
 	}
-	fn, name, err := r.function("tsw_node_edit", "sitterwasm_node_edit", "ts_node_edit", "node_edit")
+	fn, name, err := r.function("tsw_node_edit", "wasitter_node_edit", "ts_node_edit", "node_edit")
 	if err != nil {
 		return err
 	}

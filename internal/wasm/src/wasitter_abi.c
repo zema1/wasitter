@@ -1,4 +1,4 @@
-#include "sitterwasm_abi.h"
+#include "wasitter_abi.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -8,16 +8,16 @@
 
 #include "tree_sitter/api.h"
 
-/* A grammar build may override this with -DSITTERWASM_LANGUAGE_FN=foo. */
-#ifndef SITTERWASM_LANGUAGE_FN
-#define SITTERWASM_LANGUAGE_FN tree_sitter_json
+/* A grammar build may override this with -DWASITTER_LANGUAGE_FN=foo. */
+#ifndef WASITTER_LANGUAGE_FN
+#define WASITTER_LANGUAGE_FN tree_sitter_json
 #endif
 
-#ifndef SITTERWASM_LANGUAGE_NAME
-#define SITTERWASM_LANGUAGE_NAME "json"
+#ifndef WASITTER_LANGUAGE_NAME
+#define WASITTER_LANGUAGE_NAME "json"
 #endif
 
-extern const TSLanguage *SITTERWASM_LANGUAGE_FN(void);
+extern const TSLanguage *WASITTER_LANGUAGE_FN(void);
 
 /* WASI's startup object expects a main symbol even though the module is
  * consumed as a library.  Keeping this tiny entry point also makes the
@@ -224,7 +224,7 @@ static TSNode tsw_unwrap_node(uint32_t handle) {
   return node ? node->value : (TSNode){{0, 0, 0, 0}, NULL, NULL};
 }
 
-uint32_t tsw_abi_version(void) { return SITTERWASM_ABI_VERSION; }
+uint32_t tsw_abi_version(void) { return WASITTER_ABI_VERSION; }
 
 uint32_t tsw_alloc(uint32_t size) {
   void *ptr = malloc(size ? size : 1);
@@ -265,12 +265,12 @@ uint32_t tsw_realloc(uint32_t ptr, uint32_t size) {
 }
 
 uint32_t tsw_language(void) {
-  return (uint32_t)(uintptr_t)SITTERWASM_LANGUAGE_FN();
+  return (uint32_t)(uintptr_t)WASITTER_LANGUAGE_FN();
 }
 
 uint32_t tsw_language_name(uint32_t language) {
   const char *name = language ? ts_language_name(tsw_lang(language)) : NULL;
-  if (!name || !name[0]) name = SITTERWASM_LANGUAGE_NAME;
+  if (!name || !name[0]) name = WASITTER_LANGUAGE_NAME;
   return (uint32_t)(uintptr_t)name;
 }
 
@@ -284,7 +284,7 @@ uint32_t tsw_language_name_len(void) {
 }
 
 uint32_t tsw_language_abi_version(void) {
-  return ts_language_abi_version(SITTERWASM_LANGUAGE_FN());
+  return ts_language_abi_version(WASITTER_LANGUAGE_FN());
 }
 
 uint32_t tsw_language_abi_version_for(uint32_t language) {
