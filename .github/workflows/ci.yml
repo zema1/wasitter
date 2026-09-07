@@ -21,17 +21,14 @@ jobs:
       matrix:
         go: ["1.23.x", stable]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           cache-dependency-path: |
             go.sum
             comparison/go.sum
-      - uses: jdx/mise-action@v2
-      - name: Test with default toolchain settings
-        if: matrix.go == 'stable'
-        run: go test ./...
+      - uses: jdx/mise-action@v4
       - name: Test without CGO
         run: go test ./...
         env:
@@ -49,9 +46,6 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: js
           GOARCH: wasm
-      - name: Verify checked-in WASM fixture
-        if: matrix.go == 'stable'
-        run: mise run wasm-verify
       - name: Rebuild WASM artifact reproducibly
         if: matrix.go == 'stable'
         run: |
@@ -66,22 +60,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
           cache-dependency-path: |
             go.sum
             comparison/go.sum
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
       - run: mise run native-test
-      - name: Grammar artifact and native parity check
-        run: mise run test:grammar javascript
       - name: Native benchmark smoke test
-        run: mise run native-bench
+        run: mise run native-bench-smoke
 
   cross-compile:
-    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    name: Compile ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -98,13 +90,11 @@ jobs:
             goarch: arm64
           - goos: windows
             goarch: amd64
-          - goos: js
-            goarch: wasm
           - goos: wasip1
             goarch: wasm
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
           cache-dependency-path: go.sum

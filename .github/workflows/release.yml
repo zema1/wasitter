@@ -19,14 +19,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
           cache-dependency-path: |
             go.sum
             comparison/go.sum
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
       - name: Test Go API and build tooling
         run: |
           go test ./...
@@ -43,7 +43,7 @@ jobs:
           mise run release:build
           mise run release:check
           mise run release:prepare
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: grammar-assets
           path: dist/grammars/*
@@ -56,11 +56,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: grammar-assets
           path: dist/grammars
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event.release.tag_name }}
           files: dist/grammars/*

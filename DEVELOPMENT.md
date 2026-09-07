@@ -154,9 +154,19 @@ a fixture use an empty input as a baseline until a language-specific fixture
 is added. These are WASM-only throughput measurements; the `comparison/`
 module remains the place for apples-to-apples native timing and requires CGO.
 
-CI also runs a one-iteration benchmark smoke test and the native benchmark
-suite. These checks keep the benchmark entry points executable; reported
-numbers vary by host and are not a fixed performance promise.
+CI runs each Go and native comparison benchmark once as a smoke test. These
+checks verify that the benchmark code executes; they do not measure performance
+regressions. Use `mise run native-bench-smoke` to reproduce the native smoke
+test, or `mise run native-bench` for full benchmark measurements.
+
+Regular CI tests the minimum supported Go version and the latest stable
+version with CGO disabled. The stable version also runs race checks, vet,
+tests under the JavaScript/WASM host, and a reproducible WASM rebuild. The
+ordinary tests verify embedded artifact checksums; native parity covers all
+checked-in grammars. Separate compilation jobs cover the other target
+platforms without claiming to execute tests on those systems. The release
+workflow validates the tagged revision and builds all release grammars before
+uploading attachments.
 
 For an apples-to-apples native comparison, the optional `comparison/` module
 pins the upstream Go bindings for the registry grammars (and is intentionally
